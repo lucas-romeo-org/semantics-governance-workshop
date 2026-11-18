@@ -81,7 +81,7 @@ semantics-governance-workshop/
 | Wave | Workshop step | Deliverable | Mechanism | Needs account admin | Status |
 |---|---|---|---|---|---|
 | **0** | — | Repo skeleton, bundle, preflight, CI validate | DAB + script | No | ⬜ |
-| **1** | 1 · Identity | Groups, persona SPs, entitlements, secret scope | Script (workspace SDK, workspace admin) | No | ⬜ |
+| **1** | 1 · Identity | Account groups (via workspace identity proxy), persona SPs, entitlements, secret scope | Script / job `w1_identity_setup` (workspace admin) | No | ✅ |
 | **2** | 2 · Gold | Catalog/schemas, synthetic data, ownership, grants, governed tags + assignments | DAB job + script | Yes (tags) | ⬜ |
 | **3** | 3 · RLS/CLS | UDFs + ABAC row filter and column mask policies | DAB job (SQL) | No | ⬜ |
 | **4** | 4 · Metrics | Metric Views (YAML), consumer grants, "SELECT only on semantic" | DAB job (SQL) | No | ⬜ |

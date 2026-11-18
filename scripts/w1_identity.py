@@ -47,7 +47,7 @@ def one(it):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--profile", required=True, help="workspace CLI profile (workspace admin)")
+    ap.add_argument("--profile", help="workspace CLI profile (workspace admin). Omit when running as a Databricks job.")
     ap.add_argument("--group-prefix", default="wk_")
     ap.add_argument("--sp-prefix", default="sgw-")
     ap.add_argument("--secret-scope", default="sgw")
@@ -56,7 +56,7 @@ def main():
     ap.add_argument("--verify", action="store_true")
     args = ap.parse_args()
 
-    w = WorkspaceClient(profile=args.profile)
+    w = WorkspaceClient(profile=args.profile) if args.profile else WorkspaceClient()
     idp = w.workspace_iam_v2
     me = w.current_user.me()
     groups, nested, sps, caller_groups, personas = spec(args.group_prefix, args.sp_prefix)
@@ -99,7 +99,12 @@ def main():
             continue
         print(f"[{tag}] + assign {name} to workspace (workspace-access, databricks-sql-access)")
         if do:
-            idp.create_workspace_assignment_proxy(iamv2.WorkspaceAssignment(principal_id=gid, entitlements=ENTS))
+            try:
+                idp.create_workspace_assignment_proxy(iamv2.WorkspaceAssignment(principal_id=gid, entitlements=ENTS))
+            except Exception as e:  # noqa: BLE001 - the get above can be eventually consistent
+                if "already" not in str(e).lower():
+                    raise
+                print(f"    (already assigned)")
 
     # 3. service principals (account-level identities when created from an identity-federated workspace)
     spids, spapp = {}, {}

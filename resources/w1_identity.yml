@@ -1,0 +1,21 @@
+# Wave 1 — Identity setup, runnable from the workspace (runs as the deployer, who must be workspace admin).
+# Same code as `python scripts/w1_identity.py --profile <ws> --apply --verify`.
+resources:
+  jobs:
+    w1_identity_setup:
+      name: sgw · w1 identity setup
+      tasks:
+        - task_key: identity
+          spark_python_task:
+            python_file: ../scripts/w1_identity.py
+            parameters: ["--group-prefix", "${var.group_prefix}", "--secret-scope", "${var.secret_scope}", "--apply", "--verify"]
+          environment_key: sdk
+      environments:
+        - environment_key: sdk
+          spec:
+            environment_version: "4"
+            dependencies:
+              - databricks-sdk>=0.168
+      tags:
+        project: semantics-governance-workshop
+        wave: "1"
