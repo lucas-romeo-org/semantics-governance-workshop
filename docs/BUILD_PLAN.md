@@ -227,7 +227,8 @@ semantics-governance-workshop/
 
 ---
 
-### Wave 9 · Companion app
+### Wave 8 · Companion app (+ workshop step 7 · External)
+> Full design: [`APP_DESIGN.md`](APP_DESIGN.md).
 | Feature | Detail |
 |---|---|
 | Linear navigation | Step 1 → 9 with the same tracker bar as the deck |
