@@ -1,0 +1,14 @@
+# Wave 7: Step 7 · Internal consumption: AI/BI dashboard (the Genie Agent is in w7_genie.yml)
+resources:
+  dashboards:
+    retail_sales_dashboard:
+      display_name: Retail Sales Performance
+      file_path: ../src/w7_consumption/retail_sales.lvdash.json
+      warehouse_id: ${resources.sql_warehouses.sgw_warehouse.id}
+      dataset_catalog: ${var.catalog}
+      dataset_schema: semantic
+      embed_credentials: false   # viewers query with THEIR identity, so RLS/CLS apply
+      parent_path: /Workspace/Shared/semantics-governance-workshop
+      permissions:
+        - {group_name: "${var.group_prefix}analysts", level: CAN_READ}
+        - {group_name: "${var.group_prefix}sales_domain_owners", level: CAN_MANAGE}

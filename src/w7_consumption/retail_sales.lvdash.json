@@ -1,0 +1,515 @@
+{
+  "datasets": [
+    {
+      "name": "ds_sales",
+      "displayName": "Sales metrics (certified)",
+      "asset_name": "sales_metrics"
+    },
+    {
+      "name": "ds_budget",
+      "displayName": "Sales vs budget (certified)",
+      "asset_name": "sales_vs_budget_metrics"
+    }
+  ],
+  "pages": [
+    {
+      "name": "overview",
+      "displayName": "Retail Sales Performance",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "title",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Retail Sales Performance\n",
+                "Built on the **certified Metric Views** of the Retail Sales domain. Every viewer sees **only the regions and customer data their own policies allow**: the same dashboard shows Spain to Ana, Portugal to Pedro and every region to Marta."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-net-sales",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_sales",
+                  "fields": [
+                    {
+                      "name": "measure(net_sales)",
+                      "expression": "MEASURE(`net_sales`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(net_sales)",
+                  "displayName": "Net sales",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "EUR",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "title": "Net sales",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-margin",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_sales",
+                  "fields": [
+                    {
+                      "name": "measure(gross_margin_pct)",
+                      "expression": "MEASURE(`gross_margin_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(gross_margin_pct)",
+                  "displayName": "Gross margin %",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "title": "Gross margin %",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-active",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_sales",
+                  "fields": [
+                    {
+                      "name": "measure(active_customers_90d)",
+                      "expression": "MEASURE(`active_customers_90d`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(active_customers_90d)",
+                  "displayName": "Active customers (90 days)"
+                }
+              },
+              "frame": {
+                "title": "Active customers (90 days)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-attainment",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_budget",
+                  "fields": [
+                    {
+                      "name": "measure(ytd_attainment_pct)",
+                      "expression": "MEASURE(`ytd_attainment_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(ytd_attainment_pct)",
+                  "displayName": "Budget attainment YTD",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "title": "Budget attainment YTD",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "trend-net-sales",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_sales",
+                  "fields": [
+                    {
+                      "name": "month",
+                      "expression": "`month`"
+                    },
+                    {
+                      "name": "measure(net_sales)",
+                      "expression": "MEASURE(`net_sales`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "month",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Month"
+                },
+                "y": {
+                  "fieldName": "measure(net_sales)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Net sales by month",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "EUR",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "title": "Net sales by month",
+                "showTitle": true,
+                "description": "Official net sales (gross minus discounts)",
+                "showDescription": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 8,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "by-region",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_sales",
+                  "fields": [
+                    {
+                      "name": "region",
+                      "expression": "`region`"
+                    },
+                    {
+                      "name": "measure(net_sales)",
+                      "expression": "MEASURE(`net_sales`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "region",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Region"
+                },
+                "y": {
+                  "fieldName": "measure(net_sales)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Net sales by region",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "EUR",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "title": "Net sales by region",
+                "showTitle": true,
+                "description": "Only the regions you are allowed to see",
+                "showDescription": true
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 5,
+            "width": 4,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "by-category-margin",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_sales",
+                  "fields": [
+                    {
+                      "name": "category",
+                      "expression": "`category`"
+                    },
+                    {
+                      "name": "measure(gross_margin_pct)",
+                      "expression": "MEASURE(`gross_margin_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "category",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Category"
+                },
+                "y": {
+                  "fieldName": "measure(gross_margin_pct)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Gross margin % by category",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "title": "Gross margin % by category",
+                "showTitle": true,
+                "description": "Ratio computed in the Metric View, never averaged in the tool",
+                "showDescription": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "attainment-region",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_budget",
+                  "fields": [
+                    {
+                      "name": "region",
+                      "expression": "`region`"
+                    },
+                    {
+                      "name": "measure(budget_attainment_pct)",
+                      "expression": "MEASURE(`budget_attainment_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "region",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Region"
+                },
+                "y": {
+                  "fieldName": "measure(budget_attainment_pct)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Budget attainment by region",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "title": "Budget attainment by region",
+                "showTitle": true,
+                "description": "Net sales / budget",
+                "showDescription": true
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 10,
+            "width": 6,
+            "height": 5
+          }
+        }
+      ]
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#F9F7F4",
+        "dark": "#0B2026"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#1B3139"
+      },
+      "widgetBorderColor": {
+        "light": "#FFFFFF",
+        "dark": "#1B3139"
+      },
+      "fontColor": {
+        "light": "#1B3139",
+        "dark": "#EEEDE9"
+      },
+      "selectionColor": {
+        "light": "#FF5F46",
+        "dark": "#FF5F46"
+      },
+      "visualizationColors": [
+        "#FF5F46",
+        "#1B3139",
+        "#00B37E",
+        "#FFAB00",
+        "#4299E0",
+        "#618794",
+        "#98102A"
+      ],
+      "widgetHeaderAlignment": "LEFT",
+      "widgetCornerRadius": 8
+    }
+  }
+}
