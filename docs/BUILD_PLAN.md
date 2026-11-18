@@ -27,6 +27,7 @@
 | Catalog | `sgw_shop` | `var.catalog` |
 | Schemas | `gold` · `semantic` · `knowledge` · `governance` · `ops` | fixed |
 | Group prefix | `wk_` | `var.group_prefix` |
+| Governed tag prefix | `sgw_` (the sandbox account already has `pii` / `sensitivity` with other values) | `var.tag_prefix` |
 | SQL warehouse | serverless, created by the bundle (`sgw-warehouse`) or an existing one | `var.warehouse_id` |
 | Regions in data | `ES`, `PT`, `FR`, `IT` | — |
 
@@ -141,7 +142,7 @@ semantics-governance-workshop/
 |---|---|
 | Catalog + schemas + ownership | `gold` → `wk_data_engineers` · `governance` → `wk_security_admins` · `semantic` → `wk_data_engineers` · `knowledge` → `wk_sales_domain_owners` · `ops` → `wk_platform_admins` |
 | Grants | Consumers: `USE CATALOG` only (no `USE SCHEMA` on `gold`). Optional `BROWSE` on the catalog, for discovery. |
-| Governed tags (account) | `sensitivity` {public, internal, confidential} · `pii` {name, email, phone, tax_id} · `region_scope` {store_region, customer_country} · `kpi_tier` {gold, silver} — assignable by `wk_security_admins` / `wk_data_engineers` |
+| Governed tags (account, prefixed) | `sgw_sensitivity` {public, internal, confidential} · `sgw_pii` {name, email, phone, tax_id} · `sgw_region_scope` {store_region, customer_country} · `sgw_kpi_tier` {gold, silver} — assignable by `wk_security_admins` / `wk_data_engineers` |
 | Tag assignments | SQL `SET TAGS` on columns and tables |
 | Data classification | Runbook: enable it and review its suggestions against our manual tags |
 
@@ -156,8 +157,8 @@ semantics-governance-workshop/
 |---|---|
 | UDF `governance.region_filter(region)` | `wk_sales_leads` sees all regions. `wk_analysts_es` → ES, `wk_analysts_pt` → PT. |
 | UDF `governance.mask_pii(value)` | Returns `****` (partial mask for email) |
-| Policy `region_rls` on schema `gold` | `ROW FILTER … TO account users FOR TABLES MATCH COLUMNS has_tag('region_scope') AS r USING COLUMNS (r)` |
-| Policy `pii_mask` on schema `gold` | `COLUMN MASK … TO account users EXCEPT wk_pii_readers … MATCH COLUMNS has_tag('pii')` |
+| Policy `region_rls` on schema `gold` | `ROW FILTER … TO account users FOR TABLES MATCH COLUMNS has_tag('sgw_region_scope') AS r USING COLUMNS (r)` |
+| Policy `pii_mask` on schema `gold` | `COLUMN MASK … TO account users EXCEPT wk_pii_readers … MATCH COLUMNS has_tag('sgw_pii')` |
 | Grants on UDFs | `EXECUTE` as required by the policy model |
 
 **Verify job (runs as each persona SP):** the same query on `gold` (through a temporary grant in the verify step only) returns: Ana = ES rows with masked PII · Pedro = PT rows with masked PII · Marta = all rows with clear PII. A new table tagged `region_scope` is filtered automatically.
