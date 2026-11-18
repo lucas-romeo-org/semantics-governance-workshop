@@ -1,0 +1,20 @@
+# Wave 3 — Step 3 · RLS / CLS with ABAC
+resources:
+  jobs:
+    w3_security:
+      name: sgw · w3 security
+      parameters:
+        - {name: catalog, default: "${var.catalog}"}
+        - {name: group_prefix, default: "${var.group_prefix}"}
+        - {name: tag_prefix, default: "${var.tag_prefix}"}
+        - {name: secret_scope, default: "${var.secret_scope}"}
+        - {name: warehouse_id, default: "${resources.sql_warehouses.sgw_warehouse.id}"}
+      tasks:
+        - task_key: abac_policies
+          notebook_task: {notebook_path: ../src/w3_security/01_abac_policies.py}
+        - task_key: verify
+          depends_on: [{task_key: abac_policies}]
+          notebook_task: {notebook_path: ../src/w3_security/02_verify.py}
+      tags:
+        project: semantics-governance-workshop
+        wave: "3"
