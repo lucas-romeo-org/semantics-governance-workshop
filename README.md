@@ -33,7 +33,7 @@ databricks auth login --host <workspace-url> --profile <ws-profile>
 databricks auth login --host https://accounts.azuredatabricks.net --account-id <account-id> --profile <account-profile>
 
 # 2. Preflight (read-only)
-.venv/bin/python scripts/preflight.py --profile <ws-profile> --account-profile <account-profile>
+.venv/bin/python scripts/preflight.py --profile <ws-profile>
 
 # 3. Deploy wave by wave (see docs/BUILD_PLAN.md)
 databricks bundle validate -t sandbox --profile <ws-profile>

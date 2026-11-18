@@ -23,7 +23,7 @@
 | Item | Value (sandbox default) | Variable |
 |---|---|---|
 | Workspace | Azure Databricks sandbox (host from the CLI profile) | bundle target `sandbox` |
-| CLI profiles | one workspace profile + one account profile | `--profile` |
+| CLI profiles | workspace profile (workspace admin). An account profile only if a step strictly needs it (e.g. GitHub OIDC federation in wave 9). | `--profile` |
 | Catalog | `sgw_shop` | `var.catalog` |
 | Schemas | `gold` · `semantic` · `knowledge` · `governance` · `ops` | fixed |
 | Group prefix | `wk_` | `var.group_prefix` |
@@ -81,7 +81,7 @@ semantics-governance-workshop/
 | Wave | Workshop step | Deliverable | Mechanism | Needs account admin | Status |
 |---|---|---|---|---|---|
 | **0** | — | Repo skeleton, bundle, preflight, CI validate | DAB + script | No | ⬜ |
-| **1** | 1 · Identity | Groups, persona SPs, workspace assignment, secret scope | Script (Account SDK) | **Yes** | ⬜ |
+| **1** | 1 · Identity | Groups, persona SPs, entitlements, secret scope | Script (workspace SDK, workspace admin) | No | ⬜ |
 | **2** | 2 · Gold | Catalog/schemas, synthetic data, ownership, grants, governed tags + assignments | DAB job + script | Yes (tags) | ⬜ |
 | **3** | 3 · RLS/CLS | UDFs + ABAC row filter and column mask policies | DAB job (SQL) | No | ⬜ |
 | **4** | 4 · Metrics | Metric Views (YAML), consumer grants, "SELECT only on semantic" | DAB job (SQL) | No | ⬜ |
@@ -117,7 +117,7 @@ semantics-governance-workshop/
 | Account groups | `wk_platform_admins`, `wk_data_engineers`, `wk_security_admins`, `wk_sales_domain_owners`, `wk_analysts_es`, `wk_analysts_pt`, `wk_sales_leads`, `wk_pii_readers`, plus the umbrella group `wk_analysts` (contains es/pt/leads) |
 | Persona SPs | `sgw-persona-ana` → `wk_analysts_es` · `sgw-persona-pedro` → `wk_analysts_pt` · `sgw-persona-marta` → `wk_sales_leads` + `wk_pii_readers` |
 | CI/CD SP | `sgw-cicd` → `wk_data_engineers` (used in wave 9) |
-| Workspace assignment | All groups assigned to the workspace. Entitlements: `workspace-access` + `databricks-sql-access` for consumers. |
+| Workspace assignment | Automatic: in an identity-federated workspace, groups and SPs created by a workspace admin are account-level identities assigned to the workspace. Entitlements: `workspace-access` + `databricks-sql-access` for consumers. |
 | Secret scope `sgw` | OAuth client secrets of the persona SPs (read: admins + the app SP) |
 | Runbook | `runbooks/w1_identity.md`: mapping real Entra ID users and SCIM / automatic identity management |
 
