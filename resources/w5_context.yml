@@ -1,0 +1,23 @@
+# Wave 5 — Step 5 · Business context: domains, certification, Pages
+resources:
+  jobs:
+    w5_context:
+      name: sgw · w5 context
+      parameters:
+        - {name: catalog, default: "${var.catalog}"}
+        - {name: group_prefix, default: "${var.group_prefix}"}
+        - {name: domain, default: "${var.domain}"}
+        - {name: secret_scope, default: "${var.secret_scope}"}
+        - {name: warehouse_id, default: "${resources.sql_warehouses.sgw_warehouse.id}"}
+      tasks:
+        - task_key: domains_and_certification
+          notebook_task: {notebook_path: ../src/w5_context/01_domains_and_certification.py}
+        - task_key: pages
+          depends_on: [{task_key: domains_and_certification}]
+          notebook_task: {notebook_path: ../src/w5_context/02_pages.py}
+        - task_key: verify
+          depends_on: [{task_key: pages}]
+          notebook_task: {notebook_path: ../src/w5_context/03_verify.py}
+      tags:
+        project: semantics-governance-workshop
+        wave: "5"

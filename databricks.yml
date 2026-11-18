@@ -20,6 +20,9 @@ variables:
   tag_prefix:
     description: Prefix for account-level governed tags (avoids clashes in shared accounts)
     default: sgw_
+  domain:
+    description: Discover domain for the workshop assets (backed by a governed tag with the same name)
+    default: Retail Sales
   secret_scope:
     description: Secret scope holding persona service principal credentials
     default: sgw
