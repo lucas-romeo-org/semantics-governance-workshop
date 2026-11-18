@@ -1,0 +1,39 @@
+# Semantic Governance Workshop — Declarative Automation Bundle
+# Workspace-level objects only. Account-level objects (groups, SPs, governed tags,
+# federation policies) are created by scripts/ (see docs/BUILD_PLAN.md).
+bundle:
+  name: semantics-governance-workshop
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Unity Catalog catalog that holds every workshop object
+    default: sgw_shop
+  group_prefix:
+    description: Prefix of the account groups created in wave 1
+    default: wk_
+  warehouse_name:
+    description: Name of the serverless SQL warehouse created by the bundle
+    default: sgw-warehouse
+  secret_scope:
+    description: Secret scope holding persona service principal credentials
+    default: sgw
+
+targets:
+  sandbox:
+    default: true
+    # Host comes from the CLI profile: databricks bundle deploy -t sandbox --profile <ws-profile>
+    # Not using development mode on purpose: UC objects and job names must be
+    # stable and identical to what the workshop material shows.
+    mode: production
+    run_as:
+      user_name: ${workspace.current_user.userName}
+
+  customer:
+    # Copy of the workshop into a customer workspace. Pass --var overrides or edit here.
+    mode: production
+    # Host comes from the CLI profile of the customer workspace.
+    variables:
+      catalog: sgw_shop

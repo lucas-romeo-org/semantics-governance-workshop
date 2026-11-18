@@ -1,0 +1,9 @@
+.databricks/
+__pycache__/
+*.pyc
+.venv/
+.env
+*.local.*
+.DS_Store
+node_modules/
+dist/

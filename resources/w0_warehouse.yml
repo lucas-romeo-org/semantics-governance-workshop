@@ -1,0 +1,16 @@
+# Wave 0 — serverless SQL warehouse used by every SQL task, dashboard and Genie Agent
+resources:
+  sql_warehouses:
+    sgw_warehouse:
+      name: ${var.warehouse_name}
+      cluster_size: 2X-Small
+      min_num_clusters: 1
+      max_num_clusters: 1
+      auto_stop_mins: 10
+      enable_serverless_compute: true
+      warehouse_type: PRO
+      spot_instance_policy: COST_OPTIMIZED
+      tags:
+        custom_tags:
+          - key: project
+            value: semantics-governance-workshop

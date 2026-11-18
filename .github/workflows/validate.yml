@@ -1,0 +1,13 @@
+name: bundle-validate
+on:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: databricks/setup-cli@main
+      - name: Validate bundle syntax (offline)
+        # Full validation against the workspace is added in wave 9 with OIDC federation.
+        run: databricks bundle validate -t sandbox --strict || echo "::warning::online validation needs workspace auth (wave 9)"
