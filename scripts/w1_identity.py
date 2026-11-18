@@ -1,37 +1,33 @@
-"""Wave 1 · Identity: groups, persona service principals, secret scope.
+"""Wave 1 · Identity: account-level groups, persona service principals, secret scope.
 
-Uses ONLY a workspace profile with workspace-admin rights. In an identity-federated workspace,
-groups and service principals created by a workspace admin are account-level identities
-(usable in Unity Catalog grants and ABAC policies) and are assigned to this workspace.
+Runs with ONE workspace profile (workspace admin). No account console access is needed.
+
+Why the "identity proxy" API: Unity Catalog grants and ABAC policies only accept ACCOUNT-level
+identities. The classic workspace SCIM API (/api/2.0/preview/scim/v2/Groups) can create
+workspace-local groups ('WorkspaceGroup') that Unity Catalog cannot see. The workspace identity
+proxy API (/api/2.0/identity/...) creates the group in the account that contains this workspace,
+makes the caller its manager and assigns it to this workspace, all from the workspace itself.
 
 Dry-run by default (prints the plan). Use --apply to make changes. Idempotent.
 
-    python scripts/w1_identity.py --profile <ws>            # plan
-    python scripts/w1_identity.py --profile <ws> --apply    # apply
-    python scripts/w1_identity.py --profile <ws> --verify   # report
+    python scripts/w1_identity.py --profile <ws>                     # plan
+    python scripts/w1_identity.py --profile <ws> --apply --verify    # apply + verify
 
-Secrets: OAuth secrets for persona SPs are created through the workspace proxy API and written
-straight into the secret scope. They are never printed or written to disk.
+--migrate-local-groups deletes workspace-local groups with the same names (left by an earlier run).
+OAuth secrets for persona SPs are written straight into the secret scope, never printed.
 """
 import argparse
 
 from databricks.sdk import WorkspaceClient
-from databricks.sdk.service import iam
+from databricks.sdk.service import iamv2
 from databricks.sdk.service.workspace import AclPermission
+
+ENTS = [iamv2.Entitlement.WORKSPACE_ACCESS, iamv2.Entitlement.DATABRICKS_SQL_ACCESS]
 
 
 def spec(gp: str, sp: str):
-    groups = {
-        f"{gp}platform_admins": "Platform team: identity, previews, warehouses, Unity Gateway",
-        f"{gp}data_engineers": "Builders: own Gold and the Metric Views",
-        f"{gp}security_admins": "Own governed tags and ABAC policies",
-        f"{gp}sales_domain_owners": "Sales domain owners / stewards: certify, curate, approve access",
-        f"{gp}analysts_es": "Analysts · Spain",
-        f"{gp}analysts_pt": "Analysts · Portugal",
-        f"{gp}sales_leads": "Global sales leads · all regions",
-        f"{gp}pii_readers": "Allowed to see customer PII in clear",
-        f"{gp}analysts": "Umbrella consumer group (es + pt + leads)",
-    }
+    groups = [f"{gp}platform_admins", f"{gp}data_engineers", f"{gp}security_admins", f"{gp}sales_domain_owners",
+              f"{gp}analysts_es", f"{gp}analysts_pt", f"{gp}sales_leads", f"{gp}pii_readers", f"{gp}analysts"]
     nested = {f"{gp}analysts": [f"{gp}analysts_es", f"{gp}analysts_pt", f"{gp}sales_leads"]}
     sps = {
         f"{sp}persona-ana": [f"{gp}analysts_es"],
@@ -40,28 +36,13 @@ def spec(gp: str, sp: str):
         f"{sp}cicd": [f"{gp}data_engineers"],
     }
     caller_groups = [f"{gp}platform_admins", f"{gp}data_engineers", f"{gp}security_admins", f"{gp}sales_domain_owners"]
-    consumer_groups = [f"{gp}analysts_es", f"{gp}analysts_pt", f"{gp}sales_leads", f"{gp}pii_readers", f"{gp}analysts"]
     personas = [k for k in sps if "persona" in k]
-    return groups, nested, sps, caller_groups, consumer_groups, personas
+    return groups, nested, sps, caller_groups, personas
 
 
 def one(it):
     r = list(it)
     return r[0] if r else None
-
-
-def members_of(w, gid):
-    return {m.value for m in (w.groups.get(gid).members or [])}
-
-
-def add_member(w, gid, member_id):
-    w.groups.patch(gid, operations=[iam.Patch(op=iam.PatchOp.ADD, path="members", value=[{"value": member_id}])],
-                   schemas=[iam.PatchSchema.URN_IETF_PARAMS_SCIM_API_MESSAGES_2_0_PATCH_OP])
-
-
-def add_entitlements(w, gid, ents):
-    w.groups.patch(gid, operations=[iam.Patch(op=iam.PatchOp.ADD, path="entitlements", value=[{"value": e} for e in ents])],
-                   schemas=[iam.PatchSchema.URN_IETF_PARAMS_SCIM_API_MESSAGES_2_0_PATCH_OP])
 
 
 def main():
@@ -70,52 +51,80 @@ def main():
     ap.add_argument("--group-prefix", default="wk_")
     ap.add_argument("--sp-prefix", default="sgw-")
     ap.add_argument("--secret-scope", default="sgw")
+    ap.add_argument("--migrate-local-groups", action="store_true")
     ap.add_argument("--apply", action="store_true")
     ap.add_argument("--verify", action="store_true")
     args = ap.parse_args()
 
     w = WorkspaceClient(profile=args.profile)
+    idp = w.workspace_iam_v2
     me = w.current_user.me()
-    groups, nested, sps, caller_groups, consumer_groups, personas = spec(args.group_prefix, args.sp_prefix)
+    groups, nested, sps, caller_groups, personas = spec(args.group_prefix, args.sp_prefix)
     do = args.apply
     tag = "APPLY" if do else "PLAN "
     print(f"Workspace {w.get_workspace_id()} · caller {me.user_name}\n")
 
-    # 1. groups
-    gids = {}
-    for name, desc in groups.items():
-        g = one(w.groups.list(filter=f'displayName eq "{name}"', attributes="id,displayName,meta"))
-        if g:
-            gids[name] = g.id
-            kind = getattr(g.meta, "resource_type", "?") if g.meta else "?"
-            print(f"  = group {name} exists ({kind})")
-        else:
-            print(f"[{tag}] + group {name}  ({desc})")
-            if do:
-                gids[name] = w.groups.create(display_name=name).id
+    # 0. legacy workspace-local groups with the same names
+    for name in groups:
+        local = one(w.groups.list(filter=f'displayName eq "{name}"', attributes="id,displayName,meta"))
+        if local and local.meta and local.meta.resource_type == "WorkspaceGroup":
+            print(f"[{tag}] - workspace-local group {name} (invisible to Unity Catalog)"
+                  + ("" if args.migrate_local_groups else "  [kept: pass --migrate-local-groups]"))
+            if do and args.migrate_local_groups:
+                w.groups.delete(local.id)
 
-    # 2. service principals
+    # 1. account groups via the workspace identity proxy
+    gids = {}
+    for name in groups:
+        g = next((x for x in idp.list_groups_proxy(filter=f'group_name eq "{name}"') if x.group_name == name), None)
+        if g:
+            gids[name] = int(g.group_id)
+            print(f"  = account group {name} exists ({g.group_id})")
+        else:
+            print(f"[{tag}] + account group {name}")
+            if do:
+                gids[name] = int(idp.create_group_proxy(iamv2.Group(group_name=name)).group_id)
+
+    # 2. workspace assignment + entitlements for every group
+    for name in groups:
+        gid = gids.get(name)
+        current = None
+        if gid:
+            try:
+                current = idp.get_workspace_assignment_proxy(f"workspace-assignments/{gid}")
+            except Exception:  # noqa: BLE001 - not assigned yet
+                current = None
+        if current:
+            print(f"  = {name} assigned to workspace")
+            continue
+        print(f"[{tag}] + assign {name} to workspace (workspace-access, databricks-sql-access)")
+        if do:
+            idp.create_workspace_assignment_proxy(iamv2.WorkspaceAssignment(principal_id=gid, entitlements=ENTS))
+
+    # 3. service principals (account-level identities when created from an identity-federated workspace)
     spids, spapp = {}, {}
     for name in sps:
         s = one(w.service_principals.list(filter=f'displayName eq "{name}"'))
         if s:
-            spids[name], spapp[name] = s.id, s.application_id
+            spids[name], spapp[name] = int(s.id), s.application_id
             print(f"  = service principal {name} exists ({s.application_id})")
         else:
             print(f"[{tag}] + service principal {name}")
             if do:
                 s = w.service_principals.create(display_name=name, active=True)
-                spids[name], spapp[name] = s.id, s.application_id
+                spids[name], spapp[name] = int(s.id), s.application_id
 
-    # 3. memberships
+    # 4. memberships
     def ensure_member(group, member_id, label):
         gid = gids.get(group)
-        if gid and member_id and member_id in members_of(w, gid):
-            print(f"  = {label} already in {group}")
-            return
+        if gid and member_id:
+            have = {m.principal_id for m in idp.list_direct_group_members_proxy(f"groups/{gid}")}
+            if member_id in have:
+                print(f"  = {label} already in {group}")
+                return
         print(f"[{tag}] + {label} -> {group}")
         if do:
-            add_member(w, gids[group], member_id)
+            idp.create_direct_group_member_proxy(f"groups/{gids[group]}", iamv2.DirectGroupMember(principal_id=member_id))
 
     for parent, children in nested.items():
         for c in children:
@@ -124,13 +133,7 @@ def main():
         for g in gs:
             ensure_member(g, spids.get(name), f"sp {name}")
     for g in caller_groups:
-        ensure_member(g, me.id, f"user {me.user_name}")
-
-    # 4. entitlements for consumers (Databricks SQL + workspace access)
-    for g in consumer_groups:
-        print(f"[{tag}] ~ entitlements workspace-access, databricks-sql-access -> {g}")
-        if do:
-            add_entitlements(w, gids[g], ["workspace-access", "databricks-sql-access"])
+        ensure_member(g, int(me.id), f"user {me.user_name}")
 
     # 5. secret scope + persona OAuth secrets (values never printed)
     scopes = {s.name for s in w.secrets.list_scopes()}
@@ -150,27 +153,25 @@ def main():
             continue
         print(f"[{tag}] + OAuth secret for {name} -> {args.secret_scope}/{k_id}, {k_sec}")
         if do:
-            sec = w.service_principal_secrets_proxy.create(service_principal_id=spids[name])
+            sec = w.service_principal_secrets_proxy.create(service_principal_id=str(spids[name]))
             w.secrets.put_secret(args.secret_scope, k_id, string_value=spapp[name])
             w.secrets.put_secret(args.secret_scope, k_sec, string_value=sec.secret)
     print(f"[{tag}] ~ ACL MANAGE on scope {args.secret_scope} -> {args.group_prefix}platform_admins")
-    if do:
+    if do and gids.get(f"{args.group_prefix}platform_admins"):
         w.secrets.put_acl(args.secret_scope, f"{args.group_prefix}platform_admins", AclPermission.MANAGE)
 
     if args.verify:
-        print("\nVERIFY")
+        print("\nVERIFY (Unity Catalog must resolve every principal)")
+        wh = next((x.id for x in w.warehouses.list() if x.enable_serverless_compute), None)
+        principals = list(groups) + [spapp[n] for n in sps if n in spapp]
+        for p in principals:
+            r = w.statement_execution.execute_statement(warehouse_id=wh, statement=f"SHOW GRANTS `{p}` ON METASTORE", wait_timeout="50s")
+            ok = r.status.error is None
+            print(f"  {'✓' if ok else '✗'} {p}" + ("" if ok else f": {r.status.error.message[:90]}"))
         for name in groups:
-            g = one(w.groups.list(filter=f'displayName eq "{name}"', attributes="id,displayName,meta,members,entitlements"))
-            if not g:
-                print(f"  ✗ {name} missing")
-                continue
-            full = w.groups.get(g.id)
-            mem = ", ".join(sorted(m.display or m.value for m in (full.members or []))) or "(no members)"
-            ents = ",".join(e.value for e in (full.entitlements or []))
-            kind = getattr(full.meta, "resource_type", "?") if full.meta else "?"
-            print(f"  ✓ {name} [{kind}] members: {mem}" + (f" · entitlements: {ents}" if ents else ""))
-        keys = sorted(k.key for k in w.secrets.list_secrets(args.secret_scope)) if args.secret_scope in scopes else []
-        print(f"  ✓ secret scope {args.secret_scope}: {keys}")
+            if name in gids:
+                mem = [m.display_name or str(m.principal_id) for m in idp.list_direct_group_members_proxy(f"groups/{gids[name]}")]
+                print(f"    {name}: {', '.join(sorted(mem)) or '(no members)'}")
 
     print("\nDone." if do else "\nDry run only. Re-run with --apply to make these changes.")
 
