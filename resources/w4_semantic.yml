@@ -1,0 +1,19 @@
+# Wave 4 — Step 4 · Metric Views
+resources:
+  jobs:
+    w4_semantic:
+      name: sgw · w4 semantic
+      parameters:
+        - {name: catalog, default: "${var.catalog}"}
+        - {name: group_prefix, default: "${var.group_prefix}"}
+        - {name: secret_scope, default: "${var.secret_scope}"}
+        - {name: warehouse_id, default: "${resources.sql_warehouses.sgw_warehouse.id}"}
+      tasks:
+        - task_key: deploy_metric_views
+          notebook_task: {notebook_path: ../src/w4_semantic/01_deploy_metric_views.py}
+        - task_key: verify
+          depends_on: [{task_key: deploy_metric_views}]
+          notebook_task: {notebook_path: ../src/w4_semantic/02_verify.py}
+      tags:
+        project: semantics-governance-workshop
+        wave: "4"

@@ -84,7 +84,7 @@ semantics-governance-workshop/
 | **1** | 1 · Identity | Account groups (via workspace identity proxy), persona SPs, entitlements, secret scope | Script / job `w1_identity_setup` (workspace admin) | No | ✅ |
 | **2** | 2 · Gold | Catalog/schemas, synthetic data, ownership, grants, governed tags + assignments | DAB job `w2_gold` (5 notebooks) | No | ✅ |
 | **3** | 3 · RLS/CLS | UDFs + ABAC row filter and column mask policies | DAB job `w3_security` (2 notebooks) | No | ✅ |
-| **4** | 4 · Metrics | Metric Views (YAML), consumer grants, "SELECT only on semantic" | DAB job (SQL) | No | ⬜ |
+| **4** | 4 · Metrics | Metric Views (YAML), consumer grants, "SELECT only on semantic" | DAB job `w4_semantic` (2 notebooks + YAML) | No | ✅ |
 | **5** | 5 · Context | Domain + subdomains, Pages, certification/deprecation, Discover curation | Script (REST) + runbook | Maybe (previews) | ⬜ |
 | **6** | 6 · Docs | Volume + PDFs, parsing, AI Search index, Knowledge Assistant | DAB job + script | No | ⬜ |
 | **7** | 7 · Internal | AI/BI dashboard, Sales Genie Agent + benchmarks, Genie One check | DAB + script | No | ⬜ |

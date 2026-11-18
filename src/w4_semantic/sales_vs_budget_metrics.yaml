@@ -1,0 +1,71 @@
+# semantic.sales_vs_budget_metrics · actuals vs budget at month x region x category
+# Two facts (sales, budget) are combined in a pre-aggregated base view in gold (not visible to consumers).
+version: 1.1
+source: ${catalog}.gold.v_sales_budget_monthly
+comment: "Net sales versus budget by month, region and category."
+dimensions:
+  - name: month
+    expr: month
+    comment: "First day of the month"
+    display_name: Month
+    synonyms: [mes, mês]
+  - name: year
+    expr: "YEAR(month)"
+    display_name: Year
+    synonyms: [año, ano]
+  - name: region
+    expr: region
+    comment: "Sales region (ES, PT, FR, IT)"
+    display_name: Region
+    synonyms: [country, market, país, região]
+  - name: category
+    expr: category
+    display_name: Category
+    synonyms: [categoría, categoria]
+measures:
+  - name: net_sales
+    expr: SUM(net_sales)
+    comment: "Official net sales (gross minus discounts)"
+    display_name: Net sales
+    synonyms: [actuals, real, ventas netas]
+    format: {type: currency, currency_code: EUR}
+  - name: budget
+    expr: SUM(budget_amount)
+    comment: "Budgeted net sales"
+    display_name: Budget
+    synonyms: [presupuesto, orçamento, target, plan]
+    format: {type: currency, currency_code: EUR}
+  - name: budget_gap
+    expr: MEASURE(net_sales) - MEASURE(budget)
+    comment: "Net sales minus budget (positive = above budget)"
+    display_name: Gap vs budget
+    format: {type: currency, currency_code: EUR}
+  - name: budget_attainment_pct
+    expr: MEASURE(net_sales) / MEASURE(budget)
+    comment: "Net sales as % of budget"
+    display_name: Budget attainment %
+    synonyms: [cumplimiento, atingimento, attainment]
+    format: {type: percentage}
+  - name: net_sales_ytd
+    expr: SUM(net_sales)
+    window:
+      - order: month
+        range: cumulative
+      - order: year
+        range: current
+    display_name: Net sales YTD
+    format: {type: currency, currency_code: EUR}
+  - name: budget_ytd
+    expr: SUM(budget_amount)
+    window:
+      - order: month
+        range: cumulative
+      - order: year
+        range: current
+    display_name: Budget YTD
+    format: {type: currency, currency_code: EUR}
+  - name: ytd_attainment_pct
+    expr: MEASURE(net_sales_ytd) / MEASURE(budget_ytd)
+    comment: "Year-to-date attainment (composed from two window measures)"
+    display_name: YTD attainment %
+    format: {type: percentage}

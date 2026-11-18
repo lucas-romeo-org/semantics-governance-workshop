@@ -85,27 +85,34 @@ print("dimensions ok")
 
 # COMMAND ----------
 
+# Each customer is active during a window of 60-480 days (so "active customers" is meaningful),
+# and 2026 prices are 5% higher than 2025 (so year-over-year growth is visible).
 spark.sql(f"""
 CREATE OR REPLACE TABLE {g}.fact_sales COMMENT 'Sales lines. Grain: one product line in one ticket.' AS
 WITH b AS (
   SELECT id AS sale_id,
-         date_add(DATE'2025-01-01', CAST(pmod(abs(hash(id, 'd')), 669) AS INT)) AS date_key,      -- 2025-01-01 .. 2026-10-31
          CAST(pmod(abs(hash(id, 's')), 40) + 1 AS INT) AS store_id,
          CAST(pmod(abs(hash(id, 'p')), 300) + 1 AS INT) AS product_id,
          CAST(pmod(abs(hash(id, 'q')), 5) + 1 AS INT) AS quantity,
          element_at(array(0.0, 0.0, 0.0, 0.05, 0.10, 0.15, 0.20), CAST(pmod(abs(hash(id, 'disc')), 7) + 1 AS INT)) AS discount_rate,
-         pmod(abs(hash(id, 'c')), 100000) AS c_rand
+         pmod(abs(hash(id, 'c')), 100000) AS c_rand,
+         abs(hash(id, 'd')) AS d_rand
   FROM range(0, {n_sales})),
 r AS (
   SELECT b.*, s.region AS store_region,
-         CASE s.region WHEN 'ES' THEN 1 + pmod(c_rand, 7000) WHEN 'PT' THEN 7001 + pmod(c_rand, 5000)
-                       WHEN 'FR' THEN 12001 + pmod(c_rand, 4500) ELSE 16501 + pmod(c_rand, 3500) END AS customer_id
-  FROM b JOIN {g}.dim_store s USING (store_id))
-SELECT sale_id, date_key, store_id, store_region, product_id, CAST(customer_id AS BIGINT) AS customer_id, quantity,
-       round(quantity * p.list_price, 2) AS gross_amount,
-       round(quantity * p.list_price * discount_rate, 2) AS discount,
-       round(quantity * p.list_price * (1 - discount_rate) - quantity * p.list_price * p.cost_ratio, 2) AS margin
-FROM r JOIN {g}.dim_product p USING (product_id)
+         CAST(CASE s.region WHEN 'ES' THEN 1 + pmod(c_rand, 7000) WHEN 'PT' THEN 7001 + pmod(c_rand, 5000)
+                            WHEN 'FR' THEN 12001 + pmod(c_rand, 4500) ELSE 16501 + pmod(c_rand, 3500) END AS BIGINT) AS customer_id
+  FROM b JOIN {g}.dim_store s USING (store_id)),
+d AS (
+  SELECT r.*,
+         date_add(DATE'2025-01-01', CAST(pmod(pmod(abs(hash(customer_id, 'start')), 669) + pmod(d_rand, 60 + pmod(abs(hash(customer_id, 'dur')), 420)), 669) AS INT)) AS date_key
+  FROM r)
+SELECT sale_id, date_key, store_id, store_region, product_id, customer_id, quantity,
+       round(quantity * p.list_price * px, 2) AS gross_amount,
+       round(quantity * p.list_price * px * discount_rate, 2) AS discount,
+       round(quantity * p.list_price * px * (1 - discount_rate) - quantity * p.list_price * px * p.cost_ratio, 2) AS margin
+FROM (SELECT d.*, CASE WHEN year(date_key) = 2026 THEN 1.05 ELSE 1.0 END AS px FROM d) x
+JOIN {g}.dim_product p USING (product_id)
 """)
 
 spark.sql(f"""

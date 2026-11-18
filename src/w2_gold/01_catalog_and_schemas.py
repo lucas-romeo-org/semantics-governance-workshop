@@ -35,7 +35,7 @@ for s, c in schemas.items():
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {catalog}.{s} COMMENT '{c}'")
 
 # Keep the structure clean: drop the auto-created empty 'default' schema
-if spark.sql(f"SHOW TABLES IN {catalog}.default").count() == 0:
+if spark.sql(f"SHOW SCHEMAS IN {catalog} LIKE 'default'").count() > 0 and spark.sql(f"SHOW TABLES IN {catalog}.default").count() == 0:
     spark.sql(f"DROP SCHEMA IF EXISTS {catalog}.default")
 
 display(spark.sql(f"SHOW SCHEMAS IN {catalog}"))

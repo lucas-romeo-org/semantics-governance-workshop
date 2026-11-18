@@ -25,5 +25,5 @@ for cmd in model["commands"]:
     for r in (cmd.get("results") or {}).get("data") or []:
         if isinstance(r, dict) and r.get("type") == "ansi":
             for line in r.get("data", "").splitlines():
-                if line.startswith(("✅", "❌", "All ", "temporary")):
+                if line.startswith(("✅", "❌", "ℹ️", "All ", "temporary")):
                     print(" ", line)

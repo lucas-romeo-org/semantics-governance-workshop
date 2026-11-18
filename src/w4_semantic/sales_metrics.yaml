@@ -1,0 +1,196 @@
+# semantic.sales_metrics · certified sales KPIs for the Sales domain
+# Showcases: star-schema joins · atomic measures · filtered measures · composed measures (MEASURE)
+#            window measures (YTD, last year via offset, trailing 90 days) · coarser level of detail (share of total)
+version: 1.1
+source: ${catalog}.gold.fact_sales
+comment: "Certified sales KPIs for the Sales domain. One row of the source = one product line in one ticket."
+joins:
+  - name: dim_store
+    source: ${catalog}.gold.dim_store
+    'on': source.store_id = dim_store.store_id
+  - name: dim_product
+    source: ${catalog}.gold.dim_product
+    'on': source.product_id = dim_product.product_id
+  - name: dim_customer
+    source: ${catalog}.gold.dim_customer
+    'on': source.customer_id = dim_customer.customer_id
+
+dimensions:
+  - name: region
+    expr: source.store_region
+    comment: "Sales region of the store (ES, PT, FR, IT)"
+    display_name: Region
+    synonyms: [country, market, país, região, mercado]
+  - name: city
+    expr: dim_store.city
+    comment: "City of the store"
+    display_name: City
+    synonyms: [ciudad, cidade]
+  - name: store_format
+    expr: dim_store.store_format
+    comment: "Hypermarket, Supermarket, Convenience or Online"
+    display_name: Store format
+  - name: category
+    expr: dim_product.category
+    comment: "Product category"
+    display_name: Category
+    synonyms: [categoría, categoria, family]
+  - name: brand
+    expr: dim_product.brand
+    comment: "Product brand"
+    display_name: Brand
+    synonyms: [marca]
+  - name: order_date
+    expr: source.date_key
+    comment: "Sale date"
+    display_name: Date
+    synonyms: [fecha, data, day]
+  - name: month
+    expr: "DATE_TRUNC('MONTH', source.date_key)"
+    comment: "First day of the sale month"
+    display_name: Month
+    synonyms: [mes, mês]
+  - name: year
+    expr: "YEAR(source.date_key)"
+    comment: "Calendar year (fiscal year = calendar year)"
+    display_name: Year
+    synonyms: [año, ano]
+  - name: customer_id
+    expr: source.customer_id
+    comment: "Loyalty customer identifier"
+    display_name: Customer ID
+  - name: customer_name
+    expr: dim_customer.full_name
+    comment: "Customer full name (PII: masked unless the reader is allowed)"
+    display_name: Customer
+    synonyms: [cliente, client]
+  - name: customer_segment
+    expr: dim_customer.segment
+    comment: "Loyalty segment: Gold, Silver, Bronze"
+    display_name: Customer segment
+
+measures:
+  # ── atomic ────────────────────────────────────────────────────────────
+  - name: gross_sales
+    expr: SUM(source.gross_amount)
+    comment: "Sales before discounts, VAT excluded"
+    display_name: Gross sales
+    synonyms: [ventas brutas, vendas brutas]
+    format: {type: currency, currency_code: EUR}
+  - name: discount_amount
+    expr: SUM(source.discount)
+    comment: "Total discounts granted"
+    display_name: Discounts
+    synonyms: [descuentos, descontos]
+    format: {type: currency, currency_code: EUR}
+  - name: net_sales
+    expr: SUM(source.gross_amount - source.discount)
+    comment: "Official KPI. Gross sales minus discounts, VAT excluded."
+    display_name: Net sales
+    synonyms: [revenue, sales, ventas netas, vendas líquidas, ventas sin descuento]
+    format: {type: currency, currency_code: EUR}
+  - name: gross_margin
+    expr: SUM(source.margin)
+    comment: "Net sales minus cost of goods"
+    display_name: Gross margin
+    synonyms: [margen, margem, profit]
+    format: {type: currency, currency_code: EUR}
+  - name: units
+    expr: SUM(source.quantity)
+    comment: "Units sold"
+    display_name: Units
+    synonyms: [unidades, quantity]
+  - name: sales_lines
+    expr: COUNT(1)
+    comment: "Number of product lines sold"
+    display_name: Sales lines
+  - name: customers
+    expr: COUNT(DISTINCT source.customer_id)
+    comment: "Distinct customers who bought (non-additive: never sum it across periods)"
+    display_name: Customers
+    synonyms: [clientes, buyers]
+
+  # ── filtered ──────────────────────────────────────────────────────────
+  - name: promo_net_sales
+    expr: SUM(source.gross_amount - source.discount) FILTER (WHERE source.discount > 0)
+    comment: "Net sales of lines sold with a discount"
+    display_name: Promo net sales
+    synonyms: [ventas en promoción, vendas em promoção]
+    format: {type: currency, currency_code: EUR}
+
+  # ── composed (ratios re-aggregate correctly at any grain) ─────────────
+  - name: gross_margin_pct
+    expr: MEASURE(gross_margin) / MEASURE(net_sales)
+    comment: "Gross margin as % of net sales. Computed here; never average it in a tool."
+    display_name: Gross margin %
+    synonyms: [margen %, margem %]
+    format: {type: percentage}
+  - name: discount_rate
+    expr: MEASURE(discount_amount) / MEASURE(gross_sales)
+    comment: "Discounts as % of gross sales"
+    display_name: Discount rate
+    format: {type: percentage}
+  - name: promo_share_pct
+    expr: MEASURE(promo_net_sales) / MEASURE(net_sales)
+    comment: "Share of net sales sold on promotion"
+    display_name: Promo share %
+    format: {type: percentage}
+  - name: sales_per_customer
+    expr: MEASURE(net_sales) / MEASURE(customers)
+    comment: "Average net sales per buying customer"
+    display_name: Sales per customer
+    synonyms: [ticket medio por cliente, average spend]
+    format: {type: currency, currency_code: EUR}
+
+  # ── window measures ───────────────────────────────────────────────────
+  - name: net_sales_ly
+    expr: SUM(source.gross_amount - source.discount)
+    window:
+      - order: month
+        range: current
+        offset: -12 month
+    comment: "Net sales of the same month last year"
+    display_name: Net sales LY
+    synonyms: [last year, año anterior, ano anterior, LY]
+    format: {type: currency, currency_code: EUR}
+  - name: net_sales_yoy_pct
+    expr: (MEASURE(net_sales) - MEASURE(net_sales_ly)) / MEASURE(net_sales_ly)
+    comment: "Year-over-year growth of net sales"
+    display_name: Net sales YoY %
+    synonyms: [growth, crecimiento, crescimento, YoY]
+    format: {type: percentage}
+  - name: net_sales_ytd
+    expr: SUM(source.gross_amount - source.discount)
+    window:
+      - order: order_date
+        range: cumulative
+      - order: year
+        range: current
+    comment: "Year-to-date net sales"
+    display_name: Net sales YTD
+    synonyms: [YTD, acumulado del año, acumulado do ano]
+    format: {type: currency, currency_code: EUR}
+  - name: active_customers_90d
+    expr: COUNT(DISTINCT source.customer_id)
+    window:
+      - order: order_date
+        range: trailing 90 day
+        semiadditive: last
+    comment: "Active customer = bought at least once in the previous 90 days"
+    display_name: Active customers (90d)
+    synonyms: [clientes activos, clientes ativos, active customers]
+
+  # ── coarser level of detail: share of total ───────────────────────────
+  - name: net_sales_all_regions
+    expr: SUM(source.gross_amount - source.discount)
+    window:
+      - order: region
+        range: all
+    comment: "Net sales across all regions the reader can see (denominator for shares)"
+    display_name: Net sales (all visible regions)
+    format: {type: currency, currency_code: EUR}
+  - name: region_share_pct
+    expr: MEASURE(net_sales) / MEASURE(net_sales_all_regions)
+    comment: "Region share of the net sales visible to the reader"
+    display_name: Region share %
+    format: {type: percentage}
