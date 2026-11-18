@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # Step 2 · Physical governance of Gold — 1. Catalog and schemas
 # MAGIC One catalog, **segregated by purpose**: physical data (`gold`), the semantic contract (`semantic`),
-# MAGIC governed documents (`knowledge`), security functions (`governance`) and observability (`ops`).
+# MAGIC security functions (`governance`) and observability (`ops`).
 # MAGIC
 # MAGIC > If the metastore uses **Default Storage**, create the catalog once in Catalog Explorer
 # MAGIC > (*Create catalog → Use default storage*). This notebook then reuses it.
@@ -27,7 +27,6 @@ except Exception as e:
 schemas = {
     "gold": "Physical Gold tables. Closed to consumers.",
     "semantic": "Semantic contract: Metric Views. The only schema consumers can read.",
-    "knowledge": "Governed business documents and their search index.",
     "governance": "Security functions used by ABAC policies.",
     "ops": "Observability views over system tables.",
 }

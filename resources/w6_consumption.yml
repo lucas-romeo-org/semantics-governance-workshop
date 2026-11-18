@@ -1,0 +1,28 @@
+# Wave 6: Step 6 · Internal consumption: AI/BI dashboard (the Genie Agent is in w6_genie.yml)
+resources:
+  dashboards:
+    retail_sales_dashboard:
+      display_name: Retail Sales Performance
+      file_path: ../src/w6_consumption/retail_sales.lvdash.json
+      warehouse_id: ${resources.sql_warehouses.sgw_warehouse.id}
+      dataset_catalog: ${var.catalog}
+      dataset_schema: semantic
+      embed_credentials: false   # viewers query with THEIR identity, so RLS/CLS apply
+      parent_path: /Workspace/Shared/semantics-governance-workshop
+      permissions:
+        - {group_name: "${var.group_prefix}analysts", level: CAN_READ}
+        - {group_name: "${var.group_prefix}sales_domain_owners", level: CAN_MANAGE}
+
+  jobs:
+    w6_consumption_verify:
+      name: sgw · w6 consumption verify
+      parameters:
+        - {name: secret_scope, default: "${var.secret_scope}"}
+        - {name: space_id, default: "${resources.genie_spaces.retail_sales_agent.id}"}
+        - {name: dashboard_id, default: "${resources.dashboards.retail_sales_dashboard.id}"}
+      tasks:
+        - task_key: verify
+          notebook_task: {notebook_path: ../src/w6_consumption/verify.py}
+      tags:
+        project: semantics-governance-workshop
+        wave: "6"

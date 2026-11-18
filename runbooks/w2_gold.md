@@ -20,7 +20,7 @@ databricks bundle run w2_gold -t <target> --profile <ws>
 
 Each customer is active during a 60–480 day window, so about half of them are active in any 90-day period. 2026 prices are 5% above 2025, which makes year-over-year growth visible.
 
-Schema owners: `gold`, `semantic` → `wk_data_engineers` · `governance` → `wk_security_admins` · `knowledge` → `wk_sales_domain_owners` · `ops` → `wk_platform_admins` · catalog → `wk_platform_admins`.
+Schema owners: `gold`, `semantic` → `wk_data_engineers` · `governance` → `wk_security_admins` · `ops` → `wk_platform_admins` · catalog → `wk_platform_admins`.
 
 Governed tags: `sgw_pii`, `sgw_region_scope` and `sgw_sensitivity`, created from the workspace (no account console needed).
 

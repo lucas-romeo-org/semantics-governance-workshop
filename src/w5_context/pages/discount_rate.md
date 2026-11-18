@@ -11,7 +11,7 @@ How much of **gross sales** was given away as discounts.
 `Discount Rate = SUM(discount) / SUM(gross_amount)`
 
 ## Rules
-- Approving a discount above **15%** requires a regional manager (see the *Discount policy* document).
+- Approving a discount above **15%** requires a regional manager.
 - *Promo share %* (share of net sales sold with any discount) is a different KPI.
 
 ## Related

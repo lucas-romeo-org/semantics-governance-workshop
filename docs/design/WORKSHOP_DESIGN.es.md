@@ -1,6 +1,8 @@
 # Workshop: Gobierno de la Capa Semántica en Databricks
 ### De la tabla Gold al agente externo: gobernar una vez y exponer solo la semántica
 
+> **v0.2 (19 nov 2026):** se eliminó el paso de *conocimiento no estructurado* para mantener el workshop enfocado. El recorrido queda en **8 pasos**: Identity · Gold · RLS/CLS · Metrics · Context · Internal · External · Operate. Las secciones de abajo que mencionan volúmenes, AI Search o Knowledge Assistant quedan fuera de alcance.
+>
 > **Documento de diseño v0.1** · 18 nov 2026 · Autor: Lucas Romeo
 > Base para: (1) presentación de 2 h · (2) artefactos versionados en GitHub y desplegables con Asset Bundles · (3) app wrapper para impartir el workshop
 

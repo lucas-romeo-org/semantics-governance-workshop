@@ -25,7 +25,7 @@
 | Workspace | Azure Databricks sandbox (host from the CLI profile) | bundle target `sandbox` |
 | CLI profiles | workspace profile (workspace admin). An account profile only if a step strictly needs it (e.g. GitHub OIDC federation in wave 9). | `--profile` |
 | Catalog | `sgw_shop` | `var.catalog` |
-| Schemas | `gold` · `semantic` · `knowledge` · `governance` · `ops` | fixed |
+| Schemas | `gold` · `semantic` · `governance` · `ops` | fixed |
 | Group prefix | `wk_` | `var.group_prefix` |
 | Governed tag prefix | `sgw_` (the sandbox account already has `pii` / `sensitivity` with other values) | `var.tag_prefix` |
 | SQL warehouse | serverless, created by the bundle (`sgw-warehouse`) or an existing one | `var.warehouse_id` |
@@ -78,19 +78,20 @@ semantics-governance-workshop/
 
 ## 4. Waves at a glance
 
+> **Scope change (19 Nov 2026):** the unstructured-documents step was removed to keep the workshop focused and straightforward. In accounts enrolled in the legacy *Serverless Access Controls* preview, Genie Agent volume content search is blocked (`USAGE_POLICY_PREVIEW_ENABLED`). The journey now has **8 steps**.
+
 | Wave | Workshop step | Deliverable | Mechanism | Needs account admin | Status |
 |---|---|---|---|---|---|
-| **0** | — | Repo skeleton, bundle, preflight, CI validate | DAB + script | No | ⬜ |
+| **0** | — | Repo skeleton, bundle, preflight, CI validate | DAB + script | No | ✅ |
 | **1** | 1 · Identity | Account groups (via workspace identity proxy), persona SPs, entitlements, secret scope | Script / job `w1_identity_setup` (workspace admin) | No | ✅ |
 | **2** | 2 · Gold | Catalog/schemas, synthetic data, ownership, grants, governed tags + assignments | DAB job `w2_gold` (5 notebooks) | No | ✅ |
 | **3** | 3 · RLS/CLS | UDFs + ABAC row filter and column mask policies | DAB job `w3_security` (2 notebooks) | No | ✅ |
 | **4** | 4 · Metrics | Metric Views (YAML), consumer grants, "SELECT only on semantic" | DAB job `w4_semantic` (2 notebooks + YAML) | No | ✅ |
 | **5** | 5 · Context | Domain + subdomains, Pages, certification/deprecation, Discover curation | DAB job `w5_context` (3 notebooks) + runbook | No | ✅ |
-| **6** | 6 · Docs | Governed volumes (general + restricted) with synthetic PDFs. Parsing/indexing is done by the Genie Agent (wave 7). | DAB job `w6_docs` (3 notebooks) | No | ✅ |
-| **7** | 7 · Internal | AI/BI dashboard, Retail Sales Genie Agent (Metric Views + volumes, Agent mode), Genie One check | DAB + script | No | ⬜ |
-| **8** | 8 · External | Managed MCP enablement, Claude/ChatGPT guides, BI connection files, sample orchestrator | Runbook + samples | Yes (previews) | ⬜ |
-| **9** | 9 · Operate | `ops` views, observability dashboard, GitHub Actions deploy with workload identity federation | DAB + workflow + script | Yes (federation) | ⬜ |
-| **10** | All | Companion app: step navigation, artifact links, status checks, "View as…" panel | Databricks App (DAB) | No | ⬜ |
+| **6** | 6 · Internal | AI/BI dashboard, Retail Sales Genie Agent (certified Metric Views), Genie One check | DAB (`dashboards`, `genie_spaces`) + verify job | No | ✅ |
+| **7** | 7 · External | Managed MCP enablement, Claude/ChatGPT guides, BI connection files, sample orchestrator | Runbook + samples | Yes (previews) | ⬜ |
+| **8** | 8 · Operate | `ops` views, observability dashboard, GitHub Actions deploy with workload identity federation | DAB + workflow + script | Yes (federation) | ⬜ |
+| **9** | All | Companion app: step navigation, artifact links, status checks, "View as…" panel | Databricks App (DAB) | No | ⬜ |
 
 ---
 
@@ -140,7 +141,7 @@ semantics-governance-workshop/
 
 | Artifact | Detail |
 |---|---|
-| Catalog + schemas + ownership | `gold` → `wk_data_engineers` · `governance` → `wk_security_admins` · `semantic` → `wk_data_engineers` · `knowledge` → `wk_sales_domain_owners` · `ops` → `wk_platform_admins` |
+| Catalog + schemas + ownership | `gold` → `wk_data_engineers` · `governance` → `wk_security_admins` · `semantic` → `wk_data_engineers` · `ops` → `wk_platform_admins` |
 | Grants | Consumers: `USE CATALOG` only (no `USE SCHEMA` on `gold`). Optional `BROWSE` on the catalog, for discovery. |
 | Governed tags (account, prefixed) | `sgw_sensitivity` {public, internal, confidential} · `sgw_pii` {name, email, phone, tax_id} · `sgw_region_scope` {store_region, customer_country} · `sgw_kpi_tier` {gold, silver} — assignable by `wk_security_admins` / `wk_data_engineers` |
 | Tag assignments | SQL `SET TAGS` on columns and tables |
@@ -192,22 +193,7 @@ semantics-governance-workshop/
 
 ---
 
-### Wave 6 · Unstructured knowledge (Step 6)
-| Artifact | Detail |
-|---|---|
-| Volume `knowledge.docs` | 3 synthetic PDFs: *KPI handbook*, *Discount policy*, *Privacy policy* (generated in the job) |
-| Per-document access | Privacy policy in a separate volume, `knowledge.restricted_docs` (read: `wk_sales_leads` only). Volume-level grants are the reliable unit. |
-| Parsing | `ai_parse_document` → `knowledge.doc_chunks` (Delta, CDF on) |
-| Index | AI Search (Vector Search) endpoint + delta-sync index on `doc_chunks` |
-| Knowledge Assistant | Agent Bricks KA over both volumes, respecting the user's permissions (validate) |
-
-**Verify:** the index returns chunks · the KA answers "max discount without approval" with a citation · a persona without access gets no answer from the restricted document.
-
-> Cost note: the AI Search endpoint is a standing cost. `teardown.py` deletes it.
-
----
-
-### Wave 7 · Internal consumption (Step 7)
+### Wave 6 · Internal consumption (Step 6)
 | Artifact | Detail |
 |---|---|
 | AI/BI dashboard `Sales Performance` | On `sales_metrics` / `sales_vs_budget_metrics`, with viewer credentials so RLS applies |
@@ -218,7 +204,7 @@ semantics-governance-workshop/
 
 ---
 
-### Wave 8 · External consumption (Step 8)
+### Wave 7 · External consumption (Step 7)
 | Artifact | Detail |
 |---|---|
 | Managed MCP / Unity Gateway | Runbook: enable previews, grant the `wk_analysts` group on the Genie Agent MCP / DBSQL MCP, capture URLs |
@@ -230,7 +216,7 @@ semantics-governance-workshop/
 
 ---
 
-### Wave 9 · Operate (Step 9)
+### Wave 8 · Operate (Step 8)
 | Artifact | Detail |
 |---|---|
 | `ops` views | `ops.query_by_surface` (query history by client application and user), `ops.access_audit`, `ops.lineage_sales_metrics`, `ops.cost_by_consumer` |
@@ -242,7 +228,7 @@ semantics-governance-workshop/
 
 ---
 
-### Wave 10 · Companion app
+### Wave 9 · Companion app
 | Feature | Detail |
 |---|---|
 | Linear navigation | Step 1 → 9 with the same tracker bar as the deck |

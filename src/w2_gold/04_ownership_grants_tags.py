@@ -23,8 +23,7 @@ def sql(s):
 
 # COMMAND ----------
 
-owners = {"gold": "data_engineers", "semantic": "data_engineers", "knowledge": "sales_domain_owners",
-          "governance": "security_admins", "ops": "platform_admins"}
+owners = {"gold": "data_engineers", "semantic": "data_engineers", "governance": "security_admins", "ops": "platform_admins"}
 for grp in ["data_engineers", "security_admins", "sales_domain_owners", "platform_admins", "analysts"]:
     sql(f"GRANT USE CATALOG ON CATALOG {catalog} TO `{gp}{grp}`")
 for schema, grp in owners.items():
