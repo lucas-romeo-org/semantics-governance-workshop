@@ -1,0 +1,588 @@
+{
+  "datasets": [
+    {
+      "name": "ds_activity",
+      "displayName": "Semantic activity",
+      "queryLines": [
+        "SELECT date_trunc('DAY', start_time) AS day, principal, surface, layer, object, status, ",
+        "CASE WHEN layer = 'semantic' AND status = 'FINISHED' THEN 1 ELSE 0 END AS semantic_query, ",
+        "CASE WHEN status = 'FAILED' AND error_class IN ('INSUFFICIENT_PERMISSIONS','PERMISSION_DENIED') THEN 1 ELSE 0 END AS blocked ",
+        "FROM semantic_activity"
+      ]
+    },
+    {
+      "name": "ds_who",
+      "displayName": "Who queried what",
+      "queryLines": [
+        "SELECT principal, surface, layer, object, count(*) AS queries, max(start_time) AS last_query ",
+        "FROM semantic_activity WHERE status = 'FINISHED' AND object IS NOT NULL GROUP BY ALL ORDER BY queries DESC LIMIT 50"
+      ]
+    },
+    {
+      "name": "ds_blocked",
+      "displayName": "Blocked attempts",
+      "queryLines": [
+        "SELECT start_time, principal, surface, layer, object, error_class FROM blocked_attempts ORDER BY start_time DESC LIMIT 50"
+      ]
+    },
+    {
+      "name": "ds_lineage",
+      "displayName": "Lineage",
+      "queryLines": [
+        "SELECT source, target, events, last_seen FROM lineage ORDER BY events DESC LIMIT 50"
+      ]
+    },
+    {
+      "name": "ds_cost",
+      "displayName": "Cost",
+      "queryLines": [
+        "SELECT usage_date, workload, dbus FROM workshop_cost"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "ops",
+      "displayName": "Governance in action",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "title",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Governance in action\n",
+                "Every query on the workshop catalog, from every surface, attributed to the **real identity**: who queried what, who was blocked, what depends on what, and what it costs. Source: system tables (last 30 days)."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-semantic",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_activity",
+                  "fields": [
+                    {
+                      "name": "sum(semantic_query)",
+                      "expression": "SUM(`semantic_query`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(semantic_query)",
+                  "displayName": "Queries on the semantic layer"
+                }
+              },
+              "frame": {
+                "title": "Queries on the semantic layer",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-principals",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_activity",
+                  "fields": [
+                    {
+                      "name": "countdistinct(principal)",
+                      "expression": "COUNT(DISTINCT `principal`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "countdistinct(principal)",
+                  "displayName": "People & agents"
+                }
+              },
+              "frame": {
+                "title": "People & agents",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-blocked",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_activity",
+                  "fields": [
+                    {
+                      "name": "sum(blocked)",
+                      "expression": "SUM(`blocked`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(blocked)",
+                  "displayName": "Blocked attempts"
+                }
+              },
+              "frame": {
+                "title": "Blocked attempts",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-dbus",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_cost",
+                  "fields": [
+                    {
+                      "name": "sum(dbus)",
+                      "expression": "SUM(`dbus`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(dbus)",
+                  "displayName": "DBUs (30 days)",
+                  "format": {
+                    "type": "number",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "title": "DBUs (30 days)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "by-surface",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_activity",
+                  "fields": [
+                    {
+                      "name": "surface",
+                      "expression": "`surface`"
+                    },
+                    {
+                      "name": "layer",
+                      "expression": "`layer`"
+                    },
+                    {
+                      "name": "count(*)",
+                      "expression": "COUNT(`*`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "surface",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Surface"
+                },
+                "y": {
+                  "fieldName": "count(*)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Queries"
+                },
+                "color": {
+                  "fieldName": "layer",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "semantic",
+                        "color": "#00B37E"
+                      },
+                      {
+                        "value": "gold",
+                        "color": "#FF5F46"
+                      },
+                      {
+                        "value": "other",
+                        "color": "#618794"
+                      }
+                    ]
+                  },
+                  "displayName": "Layer"
+                }
+              },
+              "frame": {
+                "title": "Queries by surface and layer",
+                "showTitle": true,
+                "description": "Consumers should only ever hit the semantic layer",
+                "showDescription": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "who",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_who",
+                  "fields": [
+                    {
+                      "name": "principal",
+                      "expression": "`principal`"
+                    },
+                    {
+                      "name": "surface",
+                      "expression": "`surface`"
+                    },
+                    {
+                      "name": "layer",
+                      "expression": "`layer`"
+                    },
+                    {
+                      "name": "object",
+                      "expression": "`object`"
+                    },
+                    {
+                      "name": "queries",
+                      "expression": "`queries`"
+                    },
+                    {
+                      "name": "last_query",
+                      "expression": "`last_query`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "principal",
+                    "displayName": "Who"
+                  },
+                  {
+                    "fieldName": "surface",
+                    "displayName": "From"
+                  },
+                  {
+                    "fieldName": "layer",
+                    "displayName": "Layer"
+                  },
+                  {
+                    "fieldName": "object",
+                    "displayName": "Object"
+                  },
+                  {
+                    "fieldName": "queries",
+                    "displayName": "Queries"
+                  },
+                  {
+                    "fieldName": "last_query",
+                    "displayName": "Last query"
+                  }
+                ]
+              },
+              "frame": {
+                "title": "Who queried what",
+                "showTitle": true,
+                "description": "Real identities: people, personas and agents",
+                "showDescription": true
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 5,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "blocked",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_blocked",
+                  "fields": [
+                    {
+                      "name": "start_time",
+                      "expression": "`start_time`"
+                    },
+                    {
+                      "name": "principal",
+                      "expression": "`principal`"
+                    },
+                    {
+                      "name": "surface",
+                      "expression": "`surface`"
+                    },
+                    {
+                      "name": "layer",
+                      "expression": "`layer`"
+                    },
+                    {
+                      "name": "object",
+                      "expression": "`object`"
+                    },
+                    {
+                      "name": "error_class",
+                      "expression": "`error_class`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "start_time",
+                    "displayName": "When"
+                  },
+                  {
+                    "fieldName": "principal",
+                    "displayName": "Who"
+                  },
+                  {
+                    "fieldName": "surface",
+                    "displayName": "From"
+                  },
+                  {
+                    "fieldName": "layer",
+                    "displayName": "Layer"
+                  },
+                  {
+                    "fieldName": "object",
+                    "displayName": "Object"
+                  },
+                  {
+                    "fieldName": "error_class",
+                    "displayName": "Reason"
+                  }
+                ]
+              },
+              "frame": {
+                "title": "Blocked attempts",
+                "showTitle": true,
+                "description": "Attempts to go around the semantic layer",
+                "showDescription": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 11,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "lineage",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_lineage",
+                  "fields": [
+                    {
+                      "name": "source",
+                      "expression": "`source`"
+                    },
+                    {
+                      "name": "target",
+                      "expression": "`target`"
+                    },
+                    {
+                      "name": "events",
+                      "expression": "`events`"
+                    },
+                    {
+                      "name": "last_seen",
+                      "expression": "`last_seen`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "source",
+                    "displayName": "Source"
+                  },
+                  {
+                    "fieldName": "target",
+                    "displayName": "Target"
+                  },
+                  {
+                    "fieldName": "events",
+                    "displayName": "Events"
+                  },
+                  {
+                    "fieldName": "last_seen",
+                    "displayName": "Last seen"
+                  }
+                ]
+              },
+              "frame": {
+                "title": "Lineage",
+                "showTitle": true,
+                "description": "Gold \u2192 Metric Views \u2192 consumers",
+                "showDescription": true
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 11,
+            "width": 6,
+            "height": 6
+          }
+        }
+      ]
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#F9F7F4",
+        "dark": "#0B2026"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#1B3139"
+      },
+      "widgetBorderColor": {
+        "light": "#FFFFFF",
+        "dark": "#1B3139"
+      },
+      "fontColor": {
+        "light": "#1B3139",
+        "dark": "#EEEDE9"
+      },
+      "selectionColor": {
+        "light": "#FF5F46",
+        "dark": "#FF5F46"
+      },
+      "visualizationColors": [
+        "#00B37E",
+        "#FF5F46",
+        "#1B3139",
+        "#FFAB00",
+        "#4299E0",
+        "#618794"
+      ],
+      "widgetHeaderAlignment": "LEFT",
+      "widgetCornerRadius": 8
+    }
+  }
+}

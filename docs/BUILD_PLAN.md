@@ -89,9 +89,8 @@ semantics-governance-workshop/
 | **4** | 4 · Metrics | Metric Views (YAML), consumer grants, "SELECT only on semantic" | DAB job `w4_semantic` (2 notebooks + YAML) | No | ✅ |
 | **5** | 5 · Context | Domain + subdomains, Pages, certification/deprecation, Discover curation | DAB job `w5_context` (3 notebooks) + runbook | No | ✅ |
 | **6** | 6 · Internal | AI/BI dashboard, Retail Sales Genie Agent (certified Metric Views), Genie One check | DAB (`dashboards`, `genie_spaces`) + verify job | No | ✅ |
-| **7** | 7 · External | Managed MCP enablement, Claude/ChatGPT guides, BI connection files, sample orchestrator | Runbook + samples | Yes (previews) | ⬜ |
-| **8** | 8 · Operate | `ops` views, observability dashboard, GitHub Actions deploy with workload identity federation | DAB + workflow + script | Yes (federation) | ⬜ |
-| **9** | All | Companion app: step navigation, artifact links, status checks, "View as…" panel | Databricks App (DAB) | No | ⬜ |
+| **7** | 8 · Operate | `ops` views over system tables, "Governance in action" dashboard, CI validate on PRs (CD with OIDC federation = future, needs account-level policy) | DAB job `w7_operate` + dashboard | No | ✅ |
+| **8** | All + 7 · External | Companion app: step navigation, artifact links, status checks, "View as…" panel, **Agent console** (Genie One MCP vs DBSQL MCP, as the user) | Databricks App (DAB) | No | ⬜ |
 
 ---
 

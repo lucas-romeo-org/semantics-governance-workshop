@@ -1,0 +1,31 @@
+# Wave 7 — Step 8 · Operate: ops views over system tables + "Governance in action" dashboard
+resources:
+  jobs:
+    w7_operate:
+      name: sgw · w7 operate
+      parameters:
+        - {name: catalog, default: "${var.catalog}"}
+        - {name: group_prefix, default: "${var.group_prefix}"}
+        - {name: warehouse_id, default: "${resources.sql_warehouses.sgw_warehouse.id}"}
+      tasks:
+        - task_key: ops_views
+          notebook_task: {notebook_path: ../src/w7_operate/01_ops_views.py}
+        - task_key: verify
+          depends_on: [{task_key: ops_views}]
+          notebook_task: {notebook_path: ../src/w7_operate/02_verify.py}
+      tags:
+        project: semantics-governance-workshop
+        wave: "7"
+
+  dashboards:
+    governance_in_action:
+      display_name: Governance in action
+      file_path: ../src/w7_operate/governance_in_action.lvdash.json
+      warehouse_id: ${resources.sql_warehouses.sgw_warehouse.id}
+      dataset_catalog: ${var.catalog}
+      dataset_schema: ops
+      embed_credentials: false
+      parent_path: /Workspace/Shared/semantics-governance-workshop
+      permissions:
+        - {group_name: "${var.group_prefix}platform_admins", level: CAN_MANAGE}
+        - {group_name: "${var.group_prefix}security_admins", level: CAN_READ}
