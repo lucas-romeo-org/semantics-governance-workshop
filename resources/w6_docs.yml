@@ -1,0 +1,21 @@
+# Wave 6 — Step 6 · Unstructured knowledge in governed volumes
+resources:
+  jobs:
+    w6_docs:
+      name: sgw · w6 docs
+      parameters:
+        - {name: catalog, default: "${var.catalog}"}
+        - {name: group_prefix, default: "${var.group_prefix}"}
+        - {name: secret_scope, default: "${var.secret_scope}"}
+      tasks:
+        - task_key: volumes_and_documents
+          notebook_task: {notebook_path: ../src/w6_docs/01_volumes_and_documents.py}
+        - task_key: under_the_hood_parse
+          depends_on: [{task_key: volumes_and_documents}]
+          notebook_task: {notebook_path: ../src/w6_docs/02_under_the_hood_parse.py}
+        - task_key: verify
+          depends_on: [{task_key: volumes_and_documents}]
+          notebook_task: {notebook_path: ../src/w6_docs/03_verify.py}
+      tags:
+        project: semantics-governance-workshop
+        wave: "6"
