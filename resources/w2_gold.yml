@@ -1,0 +1,29 @@
+# Wave 2 — Step 2 · Physical governance of Gold (serverless notebooks, one concept per notebook)
+resources:
+  jobs:
+    w2_gold:
+      name: sgw · w2 gold
+      parameters:
+        - {name: catalog, default: "${var.catalog}"}
+        - {name: group_prefix, default: "${var.group_prefix}"}
+        - {name: tag_prefix, default: "${var.tag_prefix}"}
+        - {name: secret_scope, default: "${var.secret_scope}"}
+        - {name: warehouse_id, default: "${resources.sql_warehouses.sgw_warehouse.id}"}
+        - {name: sales_rows, default: "1500000"}
+      tasks:
+        - task_key: catalog_and_schemas
+          notebook_task: {notebook_path: ../src/w2_gold/01_catalog_and_schemas.py}
+        - task_key: governed_tags
+          notebook_task: {notebook_path: ../src/w2_gold/02_governed_tags.py}
+        - task_key: generate_data
+          depends_on: [{task_key: catalog_and_schemas}]
+          notebook_task: {notebook_path: ../src/w2_gold/03_generate_data.py}
+        - task_key: ownership_grants_tags
+          depends_on: [{task_key: generate_data}, {task_key: governed_tags}]
+          notebook_task: {notebook_path: ../src/w2_gold/04_ownership_grants_tags.py}
+        - task_key: verify
+          depends_on: [{task_key: ownership_grants_tags}]
+          notebook_task: {notebook_path: ../src/w2_gold/05_verify.py}
+      tags:
+        project: semantics-governance-workshop
+        wave: "2"

@@ -82,7 +82,7 @@ semantics-governance-workshop/
 |---|---|---|---|---|---|
 | **0** | — | Repo skeleton, bundle, preflight, CI validate | DAB + script | No | ⬜ |
 | **1** | 1 · Identity | Account groups (via workspace identity proxy), persona SPs, entitlements, secret scope | Script / job `w1_identity_setup` (workspace admin) | No | ✅ |
-| **2** | 2 · Gold | Catalog/schemas, synthetic data, ownership, grants, governed tags + assignments | DAB job + script | Yes (tags) | ⬜ |
+| **2** | 2 · Gold | Catalog/schemas, synthetic data, ownership, grants, governed tags + assignments | DAB job `w2_gold` (5 notebooks) | No | ✅ |
 | **3** | 3 · RLS/CLS | UDFs + ABAC row filter and column mask policies | DAB job (SQL) | No | ⬜ |
 | **4** | 4 · Metrics | Metric Views (YAML), consumer grants, "SELECT only on semantic" | DAB job (SQL) | No | ⬜ |
 | **5** | 5 · Context | Domain + subdomains, Pages, certification/deprecation, Discover curation | Script (REST) + runbook | Maybe (previews) | ⬜ |
@@ -134,7 +134,7 @@ semantics-governance-workshop/
 | `gold.dim_store` | 40 | `region` (ES/PT/FR/IT) → tag `region_scope` |
 | `gold.dim_product` | 300 | category, brand |
 | `gold.dim_customer` | 20,000 | `email`, `phone`, `tax_id`, `full_name` → tag `pii`; `country` → tag `region_scope` |
-| `gold.fact_sales` | ~2M | `store_region` denormalised → tag `region_scope`; `gross_amount`, `discount`, `margin` |
+| `gold.fact_sales` | ~1.5M | `store_region` denormalised → tag `region_scope`; `gross_amount`, `discount`, `margin` |
 | `gold.fact_budget` | ~1,700 | month × region × category |
 | `semantic.v_sales_legacy` | view | Duplicated "BI tool" view, deprecated in wave 5 |
 

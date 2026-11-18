@@ -14,3 +14,9 @@ resources:
         custom_tags:
           - key: project
             value: semantics-governance-workshop
+      permissions:
+        - {group_name: "${var.group_prefix}analysts", level: CAN_USE}
+        - {group_name: "${var.group_prefix}data_engineers", level: CAN_USE}
+        - {group_name: "${var.group_prefix}security_admins", level: CAN_USE}
+        - {group_name: "${var.group_prefix}sales_domain_owners", level: CAN_USE}
+        - {group_name: "${var.group_prefix}platform_admins", level: CAN_MANAGE}
