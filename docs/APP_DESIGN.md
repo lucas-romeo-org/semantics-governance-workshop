@@ -102,7 +102,7 @@ Every server call has **exactly one** identity, decided per route:
 **Hard rule:** no route returns business data queried as the app service principal.
 **Grants the app SP needs:** `CAN_USE` warehouse · `READ` on secret scope `sgw` · `CAN_VIEW` / `CAN_MANAGE_RUN` on the `sgw ·` jobs. **No** data grants.
 
-> **To validate first (wave 8a spike):** whether an Apps OBO token can call **Unity Gateway MCP** (`ai-gateway` scope as a `user_api_scope`). If not, the user-identity path for MCP falls back to the Genie Conversation API and the SQL warehouse (still OBO), and the MCP path is shown with persona SPs.
+> ✅ **Validated in spike 8a** ([results](spike-8a.md)): OBO → Unity Gateway MCP works with the user scope `ai-gateway`. Original question: whether an Apps OBO token can call **Unity Gateway MCP** (`ai-gateway` scope as a `user_api_scope`). If not, the user-identity path for MCP falls back to the Genie Conversation API and the SQL warehouse (still OBO), and the MCP path is shown with persona SPs.
 
 ---
 
@@ -153,7 +153,7 @@ app/
 | MCP | JSON-RPC over HTTPS to the Unity Gateway MCP services (`system.ai.genie_one_mcp`, `system.ai.dbsql`) | Already probed: `genie_ask`, `execute_sql`, `poll_sql_result` |
 | "Your agent" | Small Python tool-calling loop: Foundation Model chat endpoint (OpenAI-compatible) + DBSQL MCP tools | ~150 lines, no framework |
 | Resources | warehouse `sgw-warehouse` · secret scope `sgw` · Genie Agent · serving endpoint · verify jobs | Declared in the bundle `apps` resource |
-| `user_api_scopes` | `sql`, `dashboards.genie`, `iam.current-user:read`, (+ `ai-gateway` if supported) | |
+| `user_api_scopes` | `sql`, `dashboards.genie`, `ai-gateway` (validated) | |
 | Deploy | Bundle resource `resources/w8_app.yml` → `databricks bundle deploy` + `bundle run sgw_companion` | App name: `sgw-companion` |
 
 ```
@@ -186,7 +186,7 @@ Every map node and every artifact chip is a deep link. URLs are built from the w
 | 7 External | The Agent console itself · runbook for connecting Claude / ChatGPT |
 | 8 Operate | *Governance in action* dashboard · `ops` views · verify job run history · GitHub repo and PRs |
 
-Exact URL patterns (Catalog Explorer tabs, Discover domain, Pages) are confirmed in slice 8a and kept in `sgw/links.py`.
+URL patterns were validated in spike 8a ([results](spike-8a.md)) and live in `app/sgw/links.py`.
 
 ## 10. Build plan (wave 8, in slices)
 | Slice | Deliverable | Done when |
