@@ -4,6 +4,7 @@ import TopBar from "./components/TopBar.jsx";
 import StepRail from "./components/StepRail.jsx";
 import Diagram from "./components/Diagram.jsx";
 import StepPanel from "./components/StepPanel.jsx";
+import ExternalStage from "./components/ExternalStage.jsx";
 
 export default function App() {
   const [steps, setSteps] = useState([]);
@@ -48,8 +49,10 @@ export default function App() {
       <TopBar who={who} setWho={setWho} dark={dark} setDark={setDark} user={info?.user} />
       <StepRail steps={steps} current={current} setCurrent={setCurrent} status={status} />
       <main className="stage">
-        <Diagram step={step} nodes={info?.nodes ?? {}} who={who} />
-        <StepPanel key={`${step.id}-${who}`} step={step} who={who} deep={deep} setDeep={setDeep}
+        {step.proof === "agent_console"
+          ? <ExternalStage step={step} nodes={info?.nodes ?? {}} who={who} />
+          : <Diagram step={step} nodes={info?.nodes ?? {}} who={who} />}
+        <StepPanel key={`${step.id}-${who}`} step={step} who={who} info={info} deep={deep} setDeep={setDeep} onJump={setCurrent}
                    onPrev={() => go((c) => c - 1)} onNext={() => go((c) => c + 1)} isLast={current === steps.length - 1} />
       </main>
       <footer className="hints">

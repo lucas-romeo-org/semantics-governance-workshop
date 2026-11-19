@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Check, ExternalLink, Loader, Lock, X } from "lucide-react";
 import { api, cleanMd, eur, IDENTITIES, pct, shortName } from "../api.js";
-import AgentConsole from "./AgentConsole.jsx";
 
 const Who = ({ who }) => {
   const i = IDENTITIES.find((x) => x.id === who);
@@ -107,7 +106,6 @@ export default function Proof({ step, who }) {
     return () => { alive = false; };
   }, [k, who, live]);
 
-  if (k === "agent_console") return <AgentConsole who={who} />;
   if (k === "none") return null;
   return (
     <div className="proof">

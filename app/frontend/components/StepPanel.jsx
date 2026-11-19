@@ -1,16 +1,18 @@
 import React from "react";
 import { ChevronLeft, ChevronRight, Code, ExternalLink } from "lucide-react";
 import Proof from "./Proof.jsx";
+import OboTrace from "./OboTrace.jsx";
 
-export default function StepPanel({ step, who, deep, setDeep, onPrev, onNext, isLast }) {
+export default function StepPanel({ step, who, info, deep, setDeep, onPrev, onNext, onJump, isLast }) {
+  const consoleStep = step.proof === "agent_console";
   return (
     <aside className="panel">
       <div className="eyebrow accent">{step.eyebrow}</div>
       <h2>{step.title}</h2>
       <p className="line">{step.line}</p>
-      <ul className="points">{step.points.map((p) => <li key={p}>{p}</li>)}</ul>
+      {!consoleStep && <ul className="points">{step.points.map((p) => <li key={p}>{p}</li>)}</ul>}
 
-      <Proof step={step} who={who} />
+      {consoleStep ? <OboTrace who={who} info={info} onJump={() => onJump(8)} /> : <Proof step={step} who={who} />}
 
       {step.artifacts?.length > 0 && (
         <div className="artifacts">

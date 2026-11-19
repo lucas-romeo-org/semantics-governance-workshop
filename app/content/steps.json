@@ -278,24 +278,40 @@
   "short": "External",
   "eyebrow": "Step 7 · External consumption",
   "title": "Any agent, same rules.",
-  "line": "This app is an external consumer: it reaches the semantics through MCP with your own OAuth, like Claude or ChatGPT would.",
+  "line": "Claude, ChatGPT or Power BI sign the person in and call Databricks with that person's token. This app lives inside Databricks and plays that client, through the same MCP endpoints.",
   "points": [
-   "Genie One MCP: ontology-grounded answers",
-   "DBSQL MCP: your agent writes the SQL",
-   "Same RLS, same audit"
+   "Sign in once: SSO, one token per person (OBO)",
+   "MCP: Genie One for answers, DBSQL for your own SQL",
+   "Unity Catalog filters, masks and audits every call"
   ],
   "nodes": [
-   "mcp",
-   "bi"
+   "gateway",
+   "agents",
+   "app",
+   "oauth"
   ],
   "artifacts": [
    {
     "label": "Connect Claude / ChatGPT",
     "kind": "repo",
     "ref": "runbooks"
+   },
+   {
+    "label": "MCP client code",
+    "kind": "repo",
+    "ref": "app/sgw/mcp.py"
+   },
+   {
+    "label": "Agent code",
+    "kind": "repo",
+    "ref": "app/sgw/agent.py"
    }
   ],
-  "proof": "agent_console"
+  "proof": "agent_console",
+  "deep": {
+   "title": "The call every MCP client makes",
+   "code": "POST https://<workspace>/ai-gateway/mcp-services/system.ai.dbsql\nAuthorization: Bearer <OAuth token of the person>   ← OBO\n\n{\"jsonrpc\": \"2.0\", \"method\": \"tools/call\",\n \"params\": {\"name\": \"execute_sql\",\n   \"arguments\": {\"query\": \"SELECT region, MEASURE(net_sales)\\n     FROM sgw_shop.semantic.sales_metrics GROUP BY ALL\"},\n   \"_meta\": {\"warehouse_id\": \"<id>\"}}}\n\n# No service account, no copy of the rules in the agent:\n# Unity Catalog evaluates grants, row filters and masks as that person."
+  }
  },
  {
   "id": 8,

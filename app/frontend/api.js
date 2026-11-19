@@ -7,16 +7,15 @@ export const api = {
   info: () => get("/api/info"),
   steps: () => get("/api/steps"),
   proof: (key, who) => get(`/api/proof/${key}?who=${who}`),
-  ask: (surface, q, who) => get(`/api/ask/${surface}?who=${who}&q=${encodeURIComponent(q)}`),
-  agent: (q, who) => get(`/api/agent?who=${who}&q=${encodeURIComponent(q)}`),
+  mcpTools: (who) => get(`/api/mcp/tools?who=${who}`),
   status: () => get("/api/status"),
 };
 
 export const IDENTITIES = [
-  { id: "me", label: "You", sub: "your own login", color: "var(--id-you)" },
-  { id: "ana", label: "Ana", sub: "analyst · ES", color: "var(--id-ana)" },
-  { id: "pedro", label: "Pedro", sub: "analyst · PT", color: "var(--id-pedro)" },
-  { id: "marta", label: "Marta", sub: "lead · all + PII", color: "var(--id-marta)" },
+  { id: "me", label: "You", sub: "your own login", color: "var(--id-you)", rows: "your grants", pii: "your grants" },
+  { id: "ana", label: "Ana", sub: "analyst · ES", color: "var(--id-ana)", rows: "ES", pii: "masked" },
+  { id: "pedro", label: "Pedro", sub: "analyst · PT", color: "var(--id-pedro)", rows: "PT", pii: "masked" },
+  { id: "marta", label: "Marta", sub: "lead · all + PII", color: "var(--id-marta)", rows: "all", pii: "shown" },
 ];
 
 export const eur = (v) => {

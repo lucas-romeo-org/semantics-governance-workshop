@@ -7,9 +7,10 @@ from fastapi import HTTPException, Request
 from databricks.sdk import WorkspaceClient
 
 PERSONAS = {
-    "ana": {"label": "Ana", "role": "Analyst · Spain", "groups": ["wk_analysts_es"]},
-    "pedro": {"label": "Pedro", "role": "Analyst · Portugal", "groups": ["wk_analysts_pt"]},
-    "marta": {"label": "Marta", "role": "Global sales lead", "groups": ["wk_sales_leads", "wk_pii_readers"]},
+    "ana": {"label": "Ana", "role": "Analyst · Spain", "groups": ["wk_analysts_es"], "principal": "sgw-persona-ana"},
+    "pedro": {"label": "Pedro", "role": "Analyst · Portugal", "groups": ["wk_analysts_pt"], "principal": "sgw-persona-pedro"},
+    "marta": {"label": "Marta", "role": "Global sales lead", "groups": ["wk_sales_leads", "wk_pii_readers"],
+              "principal": "sgw-persona-marta"},
 }
 
 
@@ -34,3 +35,17 @@ def client_for(who: str, request: Request) -> WorkspaceClient:
 def app_client() -> WorkspaceClient:
     """App service principal: metadata and job status only."""
     return WorkspaceClient()
+
+
+USER_SCOPES = ["sql", "dashboards.genie", "ai-gateway"]
+
+
+def describe(who: str, request: Request) -> dict:
+    """Who the downstream calls run as, for the OBO trace in the UI."""
+    if who == "me":
+        return {"who": who, "principal": request.headers.get("x-forwarded-email") or "you",
+                "auth": "OBO · your OAuth token, forwarded by Databricks Apps", "scopes": USER_SCOPES, "simulated": False}
+    p = PERSONAS[who]
+    return {"who": who, "principal": p["principal"], "groups": p["groups"],
+            "auth": "OAuth M2M · persona service principal in the same groups (simulates the person)", "scopes": ["all-apis"],
+            "simulated": True}

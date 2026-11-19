@@ -3,11 +3,11 @@ import json
 import os
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from sgw import agent, links, mcp
-from sgw.identity import PERSONAS, app_client, client_for
+from sgw.identity import PERSONAS, app_client, client_for, describe, host
 from sgw.proofs import PROOFS, CATALOG, WH
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -46,6 +46,8 @@ def resolve(a: dict) -> dict:
         url = links.page(ART["pages"][ref])
     elif kind == "genie_one":
         url = f"{links._base()}/one?{links._o()}"
+    elif kind == "warehouse" and WH:
+        url = f"{links._base()}/sql/warehouses/{WH}?{links._o()}"
     elif kind == "repo":
         base = ART.get("repo", "https://github.com/lucas-romeo-org/semantics-governance-workshop")
         url = f"{base}/tree/main/{ref}" if ref else base
@@ -61,13 +63,16 @@ NODE_LINKS = {
     "genie": {"kind": "genie", "ref": "retail_sales_agent"}, "mcp": {"kind": "repo", "ref": "app"},
     "bi": {"kind": "repo", "ref": "runbooks"}, "ops": {"kind": "dashboard", "ref": "governance_in_action"},
     "people": {"kind": "group", "ref": "analysts"}, "genieone": {"kind": "genie_one", "ref": ""},
-    "agents": {"kind": "repo", "ref": "runbooks"},
+    "agents": {"kind": "repo", "ref": "runbooks"}, "gateway": {"kind": "repo", "ref": "app/sgw/mcp.py"},
+    "app": {"kind": "repo", "ref": "app"}, "oauth": {"kind": "repo", "ref": "runbooks/w8_app.md"},
+    "warehouse": {"kind": "warehouse", "ref": ""}, "idp": {"kind": "repo", "ref": "runbooks/w1_identity.md"},
 }
 
 
 @app.get("/api/info")
 def info(request: Request):
-    return {"catalog": CATALOG, "user": request.headers.get("x-forwarded-email"),
+    return {"catalog": CATALOG, "user": request.headers.get("x-forwarded-email"), "host": host(),
+            "mcp": {k: f"{host()}/ai-gateway/mcp-services/{v}" for k, v in mcp.SERVICES.items()},
             "has_user_token": bool(request.headers.get("x-forwarded-access-token")),
             "personas": PERSONAS, "nodes": {k: resolve(v)["url"] for k, v in NODE_LINKS.items()}}
 
@@ -91,28 +96,44 @@ def proof(key: str, request: Request, who: str = "me"):
     return JSONResponse({"who": who, "key": key, **res})
 
 
-@app.get("/api/ask/{surface}")
-def ask(surface: str, q: str, request: Request, who: str = "me"):
-    w = client_for(who, request)
-    try:
-        if surface == "genie_one":
-            return {"who": who, "surface": surface, "ok": True, **mcp.genie_one_ask(w, q)}
-        if surface == "dbsql":
-            return {"who": who, "surface": surface, "ok": True, **mcp.dbsql_execute(w, q, WH)}
-    except Exception as e:  # noqa: BLE001
-        return {"who": who, "surface": surface, "ok": False, "error": str(e).splitlines()[0][:300]}
-    raise HTTPException(404, surface)
+@app.get("/api/mcp/tools")
+def mcp_tools(request: Request, who: str = "me"):
+    """tools/list on both MCP servers, as the selected identity (discovery is itself an MCP call)."""
+    w, out = client_for(who, request), {}
+    for key, service in mcp.SERVICES.items():
+        try:
+            out[key] = {"service": service, "ok": True, "tools": mcp.list_tools(w, service)}
+        except Exception as e:  # noqa: BLE001
+            out[key] = {"service": service, "ok": False, "error": str(e).splitlines()[0][:200], "tools": []}
+    return out
 
 
-@app.get("/api/agent")
-def run_agent(q: str, request: Request, who: str = "me"):
-    """LLM as the app SP; every SQL tool call through DBSQL MCP as the selected identity."""
-    try:
-        return {"who": who, **agent.run(q, client_for(who, request), app_client(), WH)}
-    except HTTPException:
-        raise
-    except Exception as e:  # noqa: BLE001
-        return {"who": who, "ok": False, "error": str(e).splitlines()[0][:300]}
+@app.post("/api/chat")
+async def chat(request: Request):
+    """Server-sent events: the agent (LLM as the app SP) calling MCP tools as the selected identity."""
+    body = await request.json()
+    who = body.get("who", "me")
+    w_user = client_for(who, request)            # fails fast (401/400) before the stream starts
+    ident = describe(who, request)
+    history = [{"role": m.get("role"), "content": str(m.get("content", ""))[:4000]} for m in body.get("history", [])
+               if m.get("role") in ("user", "assistant")]
+
+    def events():
+        yield _sse({"t": "identity", **ident, "servers": body.get("servers", [])})
+        try:
+            for ev in agent.stream(history, body.get("servers", ["genie_one", "dbsql"]), w_user, app_client(), WH,
+                                   body.get("genie_conversation_id")):
+                yield _sse(ev)
+        except Exception as e:  # noqa: BLE001
+            yield _sse({"t": "error", "message": str(e).splitlines()[0][:300]})
+            yield _sse({"t": "done"})
+
+    return StreamingResponse(events(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+def _sse(ev: dict) -> str:
+    return f"data: {json.dumps(ev, default=str)}\n\n"
 
 
 STEP_JOBS = {1: "w1_identity_setup", 2: "w2_gold", 3: "w3_security", 4: "w4_semantic", 5: "w5_context",
