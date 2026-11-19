@@ -44,6 +44,8 @@ def resolve(a: dict) -> dict:
         url = links.domain(ART.get("domain", "Retail Sales"))
     elif kind == "page" and ART.get("pages", {}).get(ref):
         url = links.page(ART["pages"][ref])
+    elif kind == "genie_one":
+        url = f"{links._base()}/one?{links._o()}"
     elif kind == "repo":
         base = ART.get("repo", "https://github.com/lucas-romeo-org/semantics-governance-workshop")
         url = f"{base}/tree/main/{ref}" if ref else base
@@ -58,6 +60,8 @@ NODE_LINKS = {
     "context": {"kind": "domain", "ref": ""}, "dash": {"kind": "dashboard", "ref": "retail_sales_dashboard"},
     "genie": {"kind": "genie", "ref": "retail_sales_agent"}, "mcp": {"kind": "repo", "ref": "app"},
     "bi": {"kind": "repo", "ref": "runbooks"}, "ops": {"kind": "dashboard", "ref": "governance_in_action"},
+    "people": {"kind": "group", "ref": "analysts"}, "genieone": {"kind": "genie_one", "ref": ""},
+    "agents": {"kind": "repo", "ref": "runbooks"},
 }
 
 

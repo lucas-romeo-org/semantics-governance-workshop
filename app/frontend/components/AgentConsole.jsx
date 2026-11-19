@@ -17,12 +17,26 @@ function Answer({ res, kind }) {
   if (!res) return null;
   if (res.loading) return <div className="proof-loading"><Loader size={16} className="spin" /> {kind === "genie" ? "Genie is reasoning (≈30 s)…" : "executing…"}</div>;
   if (!res.ok || res.state === "FAILED" || res.error) return <div className="proof-error"><X size={14} /> {res.error || "failed"}</div>;
-  if (kind === "genie") return (
+  if (kind === "genie") return <GenieAnswer res={res} />;
+  return (
+    <DbsqlAnswer res={res} />
+  );
+}
+
+function GenieAnswer({ res }) {
+  const [more, setMore] = useState(false);
+  const text = (res.answer || "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/^#+\s*/gm, "").replace(/\*\*/g, "")
+    .split("\n").filter((l) => l.trim() && !l.trim().startsWith("|")).join("\n");
+  return (
     <div className="answer">
-      <div className="answer-md">{(res.answer || "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/[#*|]/g, " ").slice(0, 520)}…</div>
+      <div className={`answer-md ${more ? "" : "clamp"}`}>{text}</div>
+      <button className="link-btn" onClick={() => setMore(!more)}>{more ? "show less" : "show more"}</button>
       <div className="answer-meta"><span>⏱ {res.seconds}s</span>{res.deep_link && <a href={res.deep_link} target="_blank" rel="noreferrer">open in Genie One <ExternalLink size={11} /></a>}</div>
     </div>
   );
+}
+
+function DbsqlAnswer({ res }) {
   return (
     <div className="answer">
       <table className="mini"><thead><tr>{res.columns.map((c) => <th key={c}>{c}</th>)}</tr></thead>

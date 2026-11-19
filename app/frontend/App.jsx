@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { api, IDENTITIES } from "./api.js";
 import TopBar from "./components/TopBar.jsx";
 import StepRail from "./components/StepRail.jsx";
-import JourneyMap from "./components/JourneyMap.jsx";
+import Diagram from "./components/Diagram.jsx";
 import StepPanel from "./components/StepPanel.jsx";
 
 export default function App() {
@@ -46,7 +46,7 @@ export default function App() {
       <TopBar who={who} setWho={setWho} dark={dark} setDark={setDark} user={info?.user} />
       <StepRail steps={steps} current={current} setCurrent={setCurrent} />
       <main className="stage">
-        <JourneyMap step={step} nodes={info?.nodes ?? {}} />
+        <Diagram step={step} nodes={info?.nodes ?? {}} who={who} />
         <StepPanel key={`${step.id}-${who}`} step={step} who={who} deep={deep} setDeep={setDeep}
                    onPrev={() => go((c) => c - 1)} onNext={() => go((c) => c + 1)} isLast={current === steps.length - 1} />
       </main>
