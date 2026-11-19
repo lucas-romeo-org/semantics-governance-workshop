@@ -14,8 +14,38 @@ def sql(w, stmt):
 
 
 S = f"{CATALOG}.semantic"
+GENIE_SPACE = os.environ.get("GENIE_SPACE_ID", "")
+
+
+def _whoami(w):
+    me = w.current_user.me()
+    groups = sorted(g.display for g in (me.groups or []) if (g.display or "").startswith("wk_"))
+    return {"ok": True, "columns": ["identity", "groups"], "rows": [[me.display_name or me.user_name, groups]]}
+
+
+def _genie_agent(w):
+    q = "What were net sales by region in 2026-Q3?"
+    m = w.genie.start_conversation_and_wait(GENIE_SPACE, q)
+    out = {"ok": m.status.value == "COMPLETED", "question": q, "status": m.status.value, "sql": None, "answer": None,
+           "columns": [], "rows": []}
+    for a in m.attachments or []:
+        if a.text and a.text.content:
+            out["answer"] = a.text.content
+        if a.query:
+            out["sql"] = a.query.query
+            r = w.genie.get_message_attachment_query_result(GENIE_SPACE, m.conversation_id, m.id, a.attachment_id)
+            sr = r.statement_response
+            out["columns"] = [c.name for c in (sr.manifest.schema.columns or [])] if sr and sr.manifest else []
+            out["rows"] = (sr.result.data_array or []) if sr and sr.result else []
+    if not out["ok"]:
+        out["error"] = (m.error.error if m.error else m.status.value)
+    return out
+
 PROOFS = {
-    "whoami": lambda w: {"ok": True, "columns": ["identity"], "rows": [[w.current_user.me().user_name]]},
+    "whoami": lambda w: _whoami(w),
+    "genie_agent": lambda w: _genie_agent(w),
+    "activity": lambda w: sql(w, f"SELECT date_format(start_time, 'HH:mm:ss') AS at, principal, surface, layer, object, status "
+                                 f"FROM {CATALOG}.ops.semantic_activity ORDER BY start_time DESC LIMIT 12"),
     "gold_access": lambda w: sql(w, f"SELECT count(*) AS lines FROM {CATALOG}.gold.fact_sales"),
     "top_customers": lambda w: sql(w, f"SELECT customer_id, customer_name, MEASURE(net_sales) AS net_sales FROM {S}.sales_metrics "
                                       f"WHERE year = 2026 GROUP BY customer_id, customer_name ORDER BY net_sales DESC LIMIT 5"),

@@ -2,76 +2,96 @@ import React, { useState } from "react";
 import { Bot, ExternalLink, Loader, Play, Sparkles, X } from "lucide-react";
 import { api, eur, IDENTITIES } from "../api.js";
 
-// 8b: Genie One answers the natural-language question; the "your agent" side runs the SQL an agent
-// would write, through DBSQL MCP (the LLM that writes it arrives in 8d).
+// Ask once, answer twice: Genie One MCP (ontology-grounded) vs "your agent" (an LLM that writes SQL
+// against the certified Metric Views and runs it through DBSQL MCP). Data is always read as the selected identity.
 const PRESETS = [
-  { q: "What were net sales by region in 2026-Q3?",
-    sql: "SELECT region, MEASURE(net_sales) AS net_sales FROM sgw_shop.semantic.sales_metrics WHERE month >= '2026-07-01' AND month < '2026-10-01' GROUP BY region ORDER BY net_sales DESC" },
-  { q: "Who are the top 5 customers by net sales in 2026?",
-    sql: "SELECT customer_id, customer_name, MEASURE(net_sales) AS net_sales FROM sgw_shop.semantic.sales_metrics WHERE year = 2026 GROUP BY customer_id, customer_name ORDER BY net_sales DESC LIMIT 5" },
-  { q: "Show me raw rows from gold.fact_sales",
-    sql: "SELECT * FROM sgw_shop.gold.fact_sales LIMIT 5" },
+  "What were net sales by region in 2026-Q3 versus budget?",
+  "Who are the top 5 customers by net sales in 2026?",
+  "How did net sales grow year over year in 2026, month by month?",
+  "Show me raw rows from gold.fact_sales",
 ];
 
-function Answer({ res, kind }) {
-  if (!res) return null;
-  if (res.loading) return <div className="proof-loading"><Loader size={16} className="spin" /> {kind === "genie" ? "Genie is reasoning (≈30 s)…" : "executing…"}</div>;
-  if (!res.ok || res.state === "FAILED" || res.error) return <div className="proof-error"><X size={14} /> {res.error || "failed"}</div>;
-  if (kind === "genie") return <GenieAnswer res={res} />;
+const clean = (t) => (t || "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/^#+\s*/gm, "").replace(/\*\*/g, "")
+  .split("\n").filter((l) => l.trim() && !l.trim().startsWith("|")).join("\n");
+
+function Clamp({ text }) {
+  const [more, setMore] = useState(false);
+  return (<>
+    <div className={`answer-md ${more ? "" : "clamp"}`}>{clean(text)}</div>
+    {clean(text).length > 220 && <button className="link-btn" onClick={() => setMore(!more)}>{more ? "show less" : "show more"}</button>}
+  </>);
+}
+
+function Cell({ v, last }) {
+  if (v === "****") return <span className="masked">•••• masked</span>;
+  if (last && v !== null && v !== "" && !isNaN(Number(v)) && Math.abs(Number(v)) > 50) return eur(v);
+  return v;
+}
+
+function Rows({ columns, rows }) {
+  if (!rows?.length) return null;
   return (
-    <DbsqlAnswer res={res} />
+    <table className="mini"><thead><tr>{columns.map((c) => <th key={c}>{c}</th>)}</tr></thead>
+      <tbody>{rows.slice(0, 8).map((r, i) => <tr key={i}>{r.map((v, j) => <td key={j} className={j === r.length - 1 ? "num" : ""}><Cell v={v} last={j === r.length - 1} /></td>)}</tr>)}</tbody></table>
   );
 }
 
-function GenieAnswer({ res }) {
-  const [more, setMore] = useState(false);
-  const text = (res.answer || "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/^#+\s*/gm, "").replace(/\*\*/g, "")
-    .split("\n").filter((l) => l.trim() && !l.trim().startsWith("|")).join("\n");
+function GenieLane({ res }) {
+  if (!res) return <div className="lane-empty">Genie reasons over the ontology: Metric Views, Pages, certification.</div>;
+  if (res.loading) return <div className="proof-loading"><Loader size={16} className="spin" /> Genie is reasoning (≈30–40 s)…</div>;
+  if (!res.ok) return <div className="proof-error"><X size={14} /> {res.error}</div>;
   return (
-    <div className="answer">
-      <div className={`answer-md ${more ? "" : "clamp"}`}>{text}</div>
-      <button className="link-btn" onClick={() => setMore(!more)}>{more ? "show less" : "show more"}</button>
+    <div className="answer"><Clamp text={res.answer} />
       <div className="answer-meta"><span>⏱ {res.seconds}s</span>{res.deep_link && <a href={res.deep_link} target="_blank" rel="noreferrer">open in Genie One <ExternalLink size={11} /></a>}</div>
     </div>
   );
 }
 
-function DbsqlAnswer({ res }) {
+function AgentLane({ res }) {
+  if (!res) return <div className="lane-empty">An LLM writes SQL on the certified Metric Views; DBSQL MCP runs it as you.</div>;
+  if (res.loading) return <div className="proof-loading"><Loader size={16} className="spin" /> the agent is writing and running SQL…</div>;
+  if (!res.ok) return <div className="proof-error"><X size={14} /> {res.error}</div>;
+  const last = [...(res.calls || [])].reverse().find((c) => c.rows?.length) || res.calls?.[res.calls.length - 1];
   return (
     <div className="answer">
-      <table className="mini"><thead><tr>{res.columns.map((c) => <th key={c}>{c}</th>)}</tr></thead>
-        <tbody>{res.rows.map((r, i) => <tr key={i}>{r.map((v, j) => <td key={j} className={j === r.length - 1 ? "num" : ""}>
-          {v === "****" ? <span className="masked">•••• masked</span> : j === r.length - 1 && !isNaN(Number(v)) ? eur(v) : v}</td>)}</tr>)}</tbody></table>
-      <div className="answer-meta"><span>⏱ {res.seconds}s</span><span className="mono">via system.ai.dbsql</span></div>
+      <Clamp text={res.answer} />
+      {res.calls?.map((c, i) => (
+        <div key={i} className={`call ${c.state === "SUCCEEDED" ? "" : "bad"}`}>
+          <span className="eyebrow">tool call {i + 1} · execute_sql · {c.state === "SUCCEEDED" ? "ok" : "rejected"}</span>
+          <pre className="code tiny">{c.sql}</pre>
+          {c.error && <div className="proof-error"><X size={13} /> {c.error.split("\n")[0].slice(0, 160)}</div>}
+        </div>
+      ))}
+      {last && <Rows columns={last.columns} rows={last.rows} />}
+      <div className="answer-meta"><span>⏱ {res.seconds}s</span><span className="mono">LLM {res.model} as app · SQL as user</span></div>
     </div>
   );
 }
 
 export default function AgentConsole({ who }) {
-  const [p, setP] = useState(0);
+  const [q, setQ] = useState(PRESETS[0]);
   const [genie, setGenie] = useState(null);
-  const [dbsql, setDbsql] = useState(null);
+  const [agentRes, setAgentRes] = useState(null);
   const ident = IDENTITIES.find((i) => i.id === who);
 
   const run = () => {
-    const preset = PRESETS[p];
-    setGenie({ loading: true }); setDbsql({ loading: true });
-    api.ask("dbsql", preset.sql, who).then(setDbsql).catch((e) => setDbsql({ ok: false, error: String(e) }));
-    api.ask("genie_one", preset.q, who).then(setGenie).catch((e) => setGenie({ ok: false, error: String(e) }));
+    setGenie({ loading: true }); setAgentRes({ loading: true });
+    api.agent(q, who).then(setAgentRes).catch((e) => setAgentRes({ ok: false, error: String(e) }));
+    api.ask("genie_one", q, who).then(setGenie).catch((e) => setGenie({ ok: false, error: String(e) }));
   };
 
   return (
     <div className="proof console">
       <div className="proof-head"><span className="eyebrow">Agent console · ask once, answer twice</span>
         <span className="who-badge" style={{ "--c": ident.color }}><span className="avatar sm">{ident.label[0]}</span>as {ident.label}</span></div>
-      <div className="presets">
-        {PRESETS.map((x, i) => <button key={x.q} className={`preset ${i === p ? "on" : ""}`} onClick={() => setP(i)}>{x.q}</button>)}
+      <div className="ask">
+        <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && run()} aria-label="Question" />
+        <button className="primary" onClick={run}><Play size={14} /> Ask</button>
       </div>
-      <button className="primary run" onClick={run}><Play size={14} /> Ask through MCP</button>
+      <div className="presets">{PRESETS.map((x) => <button key={x} className={`preset ${x === q ? "on" : ""}`} onClick={() => setQ(x)}>{x}</button>)}</div>
       <div className="duo">
-        <div className="lane"><div className="lane-head"><Sparkles size={15} /> Genie One MCP <small>ontology-grounded</small></div><Answer res={genie} kind="genie" /></div>
-        <div className="lane"><div className="lane-head"><Bot size={15} /> Your agent · DBSQL MCP <small>certified SQL</small></div>
-          {dbsql && !dbsql.loading && <pre className="code tiny">{PRESETS[p].sql}</pre>}<Answer res={dbsql} kind="dbsql" /></div>
+        <div className="lane"><div className="lane-head"><Sparkles size={15} /> Genie One MCP <small>system.ai.genie_one_mcp</small></div><GenieLane res={genie} /></div>
+        <div className="lane"><div className="lane-head"><Bot size={15} /> Your agent · DBSQL MCP <small>system.ai.dbsql</small></div><AgentLane res={agentRes} /></div>
       </div>
       <div className="console-foot">Same per-user OAuth · same certified semantics · same row and column security · audited in step 8</div>
     </div>

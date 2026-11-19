@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Check, ExternalLink, Loader, Lock, X } from "lucide-react";
-import { api, eur, IDENTITIES, pct } from "../api.js";
+import { api, cleanMd, eur, IDENTITIES, pct, shortName } from "../api.js";
 import AgentConsole from "./AgentConsole.jsx";
 
 const Who = ({ who }) => {
@@ -25,10 +25,34 @@ function Bars({ rows, label = (r) => r[0], value = (r) => Number(r[1]), fmt = eu
 }
 
 function Body({ k, data, who }) {
+  if (!data.ok && k === "activity") return <div className="big-fact denied"><Lock size={18} /> <span><b>Restricted.</b> Operate views are for platform and security admins only.<small className="mono">{data.error}</small></span></div>;
   if (!data.ok && k !== "gold_access") return <div className="proof-error"><X size={14} /> {data.error}</div>;
   switch (k) {
-    case "whoami":
-      return <div className="big-fact"><Check size={18} /> Databricks sees <b>{data.rows[0][0]}</b></div>;
+    case "whoami": {
+      const [name, groups] = data.rows[0];
+      return (<>
+        <div className="big-fact"><Check size={18} /> <span>Databricks sees <b>{name}</b></span></div>
+        <div className="group-chips">{groups.length ? groups.map((g) => <span key={g} className="gchip">{g}</span>)
+          : <span className="muted-line">no wk_* groups (builders and admins get access through ownership)</span>}</div>
+      </>);
+    }
+    case "genie_agent":
+      return (<>
+        {data.answer && <div className="answer-md small clamp">{cleanMd(data.answer)}</div>}
+        {data.rows?.length > 0 && <Bars rows={data.rows.map((r) => [r[0], r[r.length - 1]])} />}
+        {data.sql && <pre className="code tiny">{data.sql}</pre>}
+      </>);
+    case "activity":
+      return (
+        <div className="feed">{data.rows.map((r, i) => (
+          <div key={i} className={`feed-row ${r[5] === "FAILED" ? "bad" : ""}`}>
+            <span className="mono">{r[0]}</span><b title={r[1]}>{shortName(r[1])}</b>
+            <span className={`surf s-${(r[2] || "").replace(/[^a-z]/gi, "").toLowerCase()}`}>{r[2]}</span>
+            <span className="obj"><i className={`layer l-${r[3]}`} />{r[4] || "·"}</span>
+            <span className={`st ${r[5] === "FAILED" ? "bad" : "ok"}`}>{r[5] === "FAILED" ? "blocked" : "ok"}</span>
+          </div>))}
+        </div>
+      );
     case "gold_access":
       return data.ok
         ? <div className="big-fact warn"><Lock size={18} /> gold is readable: {Number(data.rows[0][0]).toLocaleString()} lines <small>(builders only)</small></div>
@@ -66,13 +90,14 @@ function Body({ k, data, who }) {
 const TITLES = {
   whoami: "Who Databricks sees", gold_access: "Try to read gold", net_sales: "Net sales by region (certified Metric View)",
   top_customers: "Top 5 customers 2026: PII as the policy decides", legacy: "The problem in one number · ES Sep-2026",
-  certification: "What is official", activity: "Every query, attributed",
+  certification: "What is official", activity: "Latest activity on the workshop catalog (ops.semantic_activity)",
+  genie_agent: "Genie Agent · “Net sales by region in 2026-Q3?”",
 };
 
 export default function Proof({ step, who }) {
   const k = step.proof;
   const [data, setData] = useState(null);
-  const live = k && !["none", "agent_console", "activity"].includes(k);
+  const live = k && !["none", "agent_console"].includes(k);
 
   useEffect(() => {
     if (!live) return;
@@ -84,14 +109,10 @@ export default function Proof({ step, who }) {
 
   if (k === "agent_console") return <AgentConsole who={who} />;
   if (k === "none") return null;
-  if (k === "activity") return (
-    <div className="proof"><div className="proof-head"><span className="eyebrow">{TITLES.activity}</span></div>
-      <p className="muted-line">Questions asked in this app show up in <b>Governance in action</b>, attributed to the real person and surface.</p></div>
-  );
   return (
     <div className="proof">
       <div className="proof-head"><span className="eyebrow">Live · {TITLES[k]}</span><Who who={who} /></div>
-      {data ? <Body k={k} data={data} who={who} /> : <div className="proof-loading"><Loader size={16} className="spin" /> querying…</div>}
+      {data ? <Body k={k} data={data} who={who} /> : <div className="proof-loading"><Loader size={16} className="spin" /> {k === "genie_agent" ? "asking the Genie Agent (≈20 s)…" : "querying…"}</div>}
     </div>
   );
 }

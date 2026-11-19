@@ -90,7 +90,7 @@ semantics-governance-workshop/
 | **5** | 5 · Context | Domain + subdomains, Pages, certification/deprecation, Discover curation | DAB job `w5_context` (3 notebooks) + runbook | No | ✅ |
 | **6** | 6 · Internal | AI/BI dashboard, Retail Sales Genie Agent (certified Metric Views), Genie One check | DAB (`dashboards`, `genie_spaces`) + verify job | No | ✅ |
 | **7** | 8 · Operate | `ops` views over system tables, "Governance in action" dashboard, CI validate on PRs (CD with OIDC federation = future, needs account-level policy) | DAB job `w7_operate` + dashboard | No | ✅ |
-| **8** | All + 7 · External | Companion app: step navigation, artifact links, status checks, "View as…" panel, **Agent console** (Genie One MCP vs DBSQL MCP, as the user) | Databricks App (DAB) | No | ⬜ |
+| **8** | All + 7 · External | Companion app: step navigation, artifact links, status checks, "View as…" panel, **Agent console** (Genie One MCP vs DBSQL MCP, as the user) | Databricks App (DAB): React + FastAPI | No | ✅ (8a–8e) · 8f polish pending |
 
 ---
 

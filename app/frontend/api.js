@@ -8,6 +8,8 @@ export const api = {
   steps: () => get("/api/steps"),
   proof: (key, who) => get(`/api/proof/${key}?who=${who}`),
   ask: (surface, q, who) => get(`/api/ask/${surface}?who=${who}&q=${encodeURIComponent(q)}`),
+  agent: (q, who) => get(`/api/agent?who=${who}&q=${encodeURIComponent(q)}`),
+  status: () => get("/api/status"),
 };
 
 export const IDENTITIES = [
@@ -23,3 +25,7 @@ export const eur = (v) => {
   return new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR", notation: "compact", maximumFractionDigits: 2 }).format(n);
 };
 export const pct = (v) => (isFinite(Number(v)) ? `${(Number(v) * 100).toFixed(1)}%` : "–");
+
+export const cleanMd = (t) => (t || "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/^#+\s*/gm, "").replace(/\*\*/g, "")
+  .split("\n").filter((l) => l.trim() && !l.trim().startsWith("|")).join("\n");
+export const shortName = (p) => (p || "").startsWith("sgw-persona-") ? p.replace("sgw-persona-", "").replace(/^./, (c) => c.toUpperCase()) : (p || "").split(" ")[0];

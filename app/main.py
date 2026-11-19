@@ -6,8 +6,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from sgw import links, mcp
-from sgw.identity import PERSONAS, client_for
+from sgw import agent, links, mcp
+from sgw.identity import PERSONAS, app_client, client_for
 from sgw.proofs import PROOFS, CATALOG, WH
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -102,6 +102,38 @@ def ask(surface: str, q: str, request: Request, who: str = "me"):
     except Exception as e:  # noqa: BLE001
         return {"who": who, "surface": surface, "ok": False, "error": str(e).splitlines()[0][:300]}
     raise HTTPException(404, surface)
+
+
+@app.get("/api/agent")
+def run_agent(q: str, request: Request, who: str = "me"):
+    """LLM as the app SP; every SQL tool call through DBSQL MCP as the selected identity."""
+    try:
+        return {"who": who, **agent.run(q, client_for(who, request), app_client(), WH)}
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        return {"who": who, "ok": False, "error": str(e).splitlines()[0][:300]}
+
+
+STEP_JOBS = {1: "w1_identity_setup", 2: "w2_gold", 3: "w3_security", 4: "w4_semantic", 5: "w5_context",
+             6: "w6_consumption_verify", 8: "w7_operate"}
+
+
+@app.get("/api/status")
+def status():
+    """Last verify run per step (app SP: job metadata only, never data)."""
+    w, out = app_client(), {}
+    for step, key in STEP_JOBS.items():
+        job_id = ART.get("jobs", {}).get(key)
+        if not job_id:
+            continue
+        try:
+            run = next(iter(w.jobs.list_runs(job_id=int(job_id), limit=1, completed_only=True)), None)
+            out[step] = {"result": run.state.result_state.value if run and run.state and run.state.result_state else None,
+                         "at": run.end_time if run else None, "url": links.job(job_id)}
+        except Exception as e:  # noqa: BLE001
+            out[step] = {"result": None, "error": str(e).splitlines()[0][:120]}
+    return out
 
 
 # ── frontend (built by Databricks Apps: npm install → npm run build → dist/) ──

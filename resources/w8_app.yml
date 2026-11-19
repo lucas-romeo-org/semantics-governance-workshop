@@ -19,6 +19,13 @@ resources:
         - {name: persona-pedro-secret, secret: {scope: "${var.secret_scope}", key: persona-pedro-client-secret, permission: READ}}
         - {name: persona-marta-id, secret: {scope: "${var.secret_scope}", key: persona-marta-client-id, permission: READ}}
         - {name: persona-marta-secret, secret: {scope: "${var.secret_scope}", key: persona-marta-client-secret, permission: READ}}
+        - {name: job-w1-identity-setup, job: {id: "${resources.jobs.w1_identity_setup.id}", permission: CAN_MANAGE_RUN}}
+        - {name: job-w2-gold, job: {id: "${resources.jobs.w2_gold.id}", permission: CAN_MANAGE_RUN}}
+        - {name: job-w3-security, job: {id: "${resources.jobs.w3_security.id}", permission: CAN_MANAGE_RUN}}
+        - {name: job-w4-semantic, job: {id: "${resources.jobs.w4_semantic.id}", permission: CAN_MANAGE_RUN}}
+        - {name: job-w5-context, job: {id: "${resources.jobs.w5_context.id}", permission: CAN_MANAGE_RUN}}
+        - {name: job-w6-consumption-verify, job: {id: "${resources.jobs.w6_consumption_verify.id}", permission: CAN_MANAGE_RUN}}
+        - {name: job-w7-operate, job: {id: "${resources.jobs.w7_operate.id}", permission: CAN_MANAGE_RUN}}
       permissions:
         - {group_name: "${var.group_prefix}platform_admins", level: CAN_MANAGE}
         - {group_name: "${var.group_prefix}analysts", level: CAN_USE}

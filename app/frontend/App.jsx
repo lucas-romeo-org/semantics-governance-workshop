@@ -13,9 +13,11 @@ export default function App() {
   const [deep, setDeep] = useState(false);
   const [dark, setDark] = useState(false);
   const [error, setError] = useState(null);
+  const [status, setStatus] = useState({});
 
   useEffect(() => {
     Promise.all([api.steps(), api.info()]).then(([s, i]) => { setSteps(s); setInfo(i); }).catch((e) => setError(String(e)));
+    api.status().then(setStatus).catch(() => {});
   }, []);
 
   useEffect(() => { document.documentElement.dataset.theme = dark ? "dark" : "light"; }, [dark]);
@@ -44,7 +46,7 @@ export default function App() {
   return (
     <div className="app">
       <TopBar who={who} setWho={setWho} dark={dark} setDark={setDark} user={info?.user} />
-      <StepRail steps={steps} current={current} setCurrent={setCurrent} />
+      <StepRail steps={steps} current={current} setCurrent={setCurrent} status={status} />
       <main className="stage">
         <Diagram step={step} nodes={info?.nodes ?? {}} who={who} />
         <StepPanel key={`${step.id}-${who}`} step={step} who={who} deep={deep} setDeep={setDeep}
