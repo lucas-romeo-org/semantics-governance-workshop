@@ -30,7 +30,7 @@ const NODES = {
   oauth: { x: 488, y: 64, w: 176, h: 92, title: "Databricks OAuth", sub: "SSO via your IdP", icon: Fingerprint, tone: "blue", chips: [{ t: "1 token per person", k: "entry" }] },
   gold: { x: 228, y: 252, w: 176, h: 88, title: "gold tables", sub: "owner: engineers", icon: Database, tone: "orange", chips: [{ t: "tag pii", k: "val" }, { t: "tag region", k: "val" }] },
   policies: { x: 228, y: 392, w: 176, h: 88, title: "ABAC policies", sub: "row filter · mask", icon: Shield, tone: "red", chips: "who" },
-  mv: { x: 488, y: 252, w: 176, h: 88, title: "Metric Views", sub: "19 measures · YAML", icon: Sigma, tone: "orange", chips: [{ t: "SELECT for consumers", k: "user" }] },
+  mv: { x: 488, y: 252, w: 176, h: 88, title: "Metric Views", sub: "18 measures · YAML", icon: Sigma, tone: "orange", chips: [{ t: "SELECT for consumers", k: "user" }] },
   context: { x: 488, y: 392, w: 176, h: 88, title: "Domain · Pages", sub: "certified glossary", icon: BookOpen, tone: "green", chips: [{ t: "✓ certified", k: "exec" }, { t: "domain", k: "neutral" }] },
   dash: { x: 708, y: 228, w: 208, h: 60, title: "AI/BI Dashboard", sub: "viewer credentials", icon: LayoutDashboard, tone: "blue" },
   genie: { x: 708, y: 296, w: 208, h: 60, title: "Genie Agent", sub: "curated · certified", icon: Sparkles, tone: "violet" },

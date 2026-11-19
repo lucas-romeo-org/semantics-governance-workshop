@@ -1,6 +1,6 @@
 # Companion App: Design
 
-> **Status:** v0.3 (19 Nov 2026): React + Vite frontend built by Databricks Apps at deploy time; app-first UX (visual, little text) · Build = wave 8 in [`BUILD_PLAN.md`](BUILD_PLAN.md)
+> **Status:** v0.4 (19 Nov 2026): built and deployed (wave 8, slices 8a–8f). FastAPI backend + React/Vite frontend built by Databricks Apps at deploy time; app-first UX (visual, little text) · Build = wave 8 in [`BUILD_PLAN.md`](BUILD_PLAN.md)
 > **Working name:** `sgw-companion` (Databricks App)
 
 ---
@@ -26,7 +26,8 @@ The app is also **the external consumer of step 7**. It reaches the governed sem
 ## 2. Audiences and modes
 | Mode | Who | What changes |
 |---|---|---|
-| **Presenter** | The SA delivering the workshop | Keyboard shortcuts (`←/→` steps, `1–8` jump, `V` cycles "View as", `D` toggles depth), larger type |
+| **Presenter** (`P`) | The SA delivering the workshop | Larger type and keyboard navigation (`←/→` steps, `0–8` jump, `V` cycles "View as", `D` toggles depth) |
+| **Builder** (`B`, off by default) | Attendees who want the code behind each step | A `</>` tab per block; "Built with" per step: notebooks, scripts, bundle YAML and runbooks (GitHub and workspace), plus the step's job |
 | **Self-guided** | Attendees after the session, or customer teams | Same content. "Open in workspace" links are emphasised. |
 
 **Depth toggle** (from the reference template): **Basic** shows the story and the result. **Deep** adds code, grants, policy SQL and system-table evidence.
@@ -49,7 +50,7 @@ The app is also **the external consumer of step 7**. It reaches the governed sem
 │                                               └───────────┘   │  ── Artifacts ──  (open ↗)           │
 │                                                               │  ── Code ── (Deep)                   │
 ├───────────────────────────────────────────────┴──────────────────────────────────────┤
-│ Legend · identity colours · claims        ← → steps · 1–8 jump · V view as · D depth │
+│ Legend · identity colours · claims        ← → steps · 0–8 jump · V view as · D depth │
 └──────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -63,8 +64,8 @@ The app is also **the external consumer of step 7**. It reaches the governed sem
 | 4 | **Metrics** | Semantic zone | YAML excerpt, measure catalogue (atomic / filtered / composed / window / LOD), exposure pattern | KPI tiles + YoY chart from `sales_metrics` as the selected identity |
 | 5 | **Context** | Semantic → Discover | Domain, certification, Pages | Certification badges + the *Net Sales* Page (read live) |
 | 6 | **Internal** | Consumers: Dashboard, Genie | Dashboard + Genie Agent | Embedded links. "Ask the Genie Agent" with one preset question as the selected identity |
-| 7 | **External · Agent console** | Consumers: MCP, App | See §6 | Same question through **Genie One MCP** and **DBSQL MCP**, side by side |
-| 8 | **Operate** | Ops band | Audit, lineage, cost, change control | `ops.semantic_activity` for the last hour, including the queries just made from the app |
+| 7 | **External · Agent chat** | Consumers: MCP, App | See §6 | Chat over **Genie One MCP** and/or **DBSQL MCP**, as the selected identity; tool-call cards and a live OBO trace |
+| 8 | **Operate** | Ops band | Who queried what and from which surface, blocked attempts, lineage, cost | `ops` views: `semantic_activity` for the last hour, including the queries just made from the app |
 
 The **closing moment** on screen 8: the questions asked in the app a minute ago show up attributed to the real person, from surface *Databricks App* / *MCP*.
 
@@ -95,78 +96,79 @@ Every server call has **exactly one** identity, decided per route:
 | Query data, **View as = Ana/Pedro/Marta** | **Persona service principal** | App reads `sgw/persona-*` secrets (secret resource) → M2M client | Reproducible demo without real test users. Labelled **"simulated persona"**. |
 | Genie Agent question | User (OBO, `dashboards.genie`) or persona SP | Genie Conversation API | Same rule |
 | Genie One MCP | User (OBO) or persona SP | Unity Gateway MCP `system.ai.genie_one_mcp`, `genie_ask` | External-consumer pattern |
-| DBSQL MCP + LLM | User (OBO) or persona SP | Python tool-calling loop with a Foundation Model endpoint; tool = Unity Gateway MCP `system.ai.dbsql` | "Your own agent" pattern |
+| Agent chat (step 7) | User (OBO) or persona SP, per tool call | Tool-calling loop: the LLM (Foundation Model, runs as the app SP) picks tools discovered with `tools/list` on Unity Gateway MCP `system.ai.genie_one_mcp` and/or `system.ai.dbsql` | "Your own agent" pattern; the LLM never reads data |
 | Read verify status, artifact metadata | **App service principal** | `CAN_VIEW` on jobs, dashboards and the Genie Agent | Metadata only, never business data |
 | "Re-run verify" button | App SP | `CAN_MANAGE_RUN` on the verify jobs | The job itself runs as its owner |
 
 **Hard rule:** no route returns business data queried as the app service principal.
-**Grants the app SP needs:** `CAN_USE` warehouse · `READ` on secret scope `sgw` · `CAN_VIEW` / `CAN_MANAGE_RUN` on the `sgw ·` jobs. **No** data grants.
+**Grants the app SP needs:** `CAN_USE` warehouse · `READ` on secret scope `sgw` · `CAN_VIEW` / `CAN_MANAGE_RUN` on the `sgw ·` jobs · `CAN_QUERY` on the LLM endpoint. **No** data grants.
 
-> ✅ **Validated in spike 8a** ([results](spike-8a.md)): OBO → Unity Gateway MCP works with the user scope `ai-gateway`. Original question: whether an Apps OBO token can call **Unity Gateway MCP** (`ai-gateway` scope as a `user_api_scope`). If not, the user-identity path for MCP falls back to the Genie Conversation API and the SQL warehouse (still OBO), and the MCP path is shown with persona SPs.
+> ✅ **Validated in spike 8a** ([results](spike-8a.md)): OBO → Unity Gateway MCP works with the user scope `ai-gateway` (`user_api_scopes: [sql, dashboards.genie, ai-gateway]`). Users consent once. `iam.current-user:read` and `iam.access-control:read` are default scopes and must not be declared.
 
 ---
 
-## 6. Agent console (step 7, external consumption)
+## 6. Agent chat (step 7, external consumption)
+
+The app is a generic **MCP client**, the same kind of client as Claude or ChatGPT. It discovers the tools of each MCP server live (`tools/list`) and runs every call as the selected identity. The app implements no rules: Unity Catalog decides.
 
 ```
-┌ ASK ONCE · ANSWER TWICE ─────────────────────────────────────── as: Ana · simulated persona ┐
-│ [ What were net sales by region in 2026-Q3 versus budget?        ] [Ask]  presets ▾          │
-├────────────────────────────────────────┬────────────────────────────────────────────────────┤
-│ GENIE ONE MCP · genie_ask              │ YOUR AGENT · LLM + DBSQL MCP · execute_sql         │
-│ Genie reasons over the ontology        │ The agent discovers certified Metric Views,        │
-│ (Metric Views, Pages, certification)   │ writes SQL, runs it through MCP                    │
-│ ── Answer ─────────────────            │ ── Answer ─────────────────                        │
-│ ES 10.97 M€ · 97.4% of budget …        │ ES 10.97 M€ · 97.4% …                              │
-│ ── Evidence ── sources: ✓sales_vs_…    │ ── Evidence ── SQL: SELECT region, MEASURE(…)      │
-│ ⏱ 7.8 s                                │ ⏱ 5.1 s · 3 tool calls                             │
-└────────────────────────────────────────┴────────────────────────────────────────────────────┘
-  ① same per-user OAuth  ② same certified semantics  ③ same RLS: Ana sees ES only  ④ audited (→ step 8)
-  [Connect this from Claude / ChatGPT ↗]: MCP URL + OAuth steps (runbook)
+┌ AGENT CHAT · as: Ana · simulated persona ─────────────────────────────┐
+│ [ question …                                        ] [Send]          │
+│ presets: Net sales by region · Top 5 customers · Year over year · Try to read gold │
+│ MCP: ☑ Genie One MCP   ☑ DBSQL MCP            (tools via tools/list)    │
+├──────────────────────────────────────────────────────────────────────┤
+│ ▣ tool call card · server · tool · identity · SQL or Genie answer · rows or UC error │
+├──────────────────────────────────────────────────────────────────────┤
+│ ON BEHALF OF THE USER: person → client → token for that person →      │
+│ Unity Gateway MCP → Unity Catalog decides → audited under that name   │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Preset questions:** the workshop question, "top 5 customers" (shows masking), "YoY by month" (window measure) and one "trap": *"show me raw rows from gold.fact_sales"*, which gets denied.
+- **Transport:** the answer streams from `POST /api/chat` (server-sent events). Each tool call becomes a card: server, tool, identity, the SQL or Genie's answer, and the rows or the Unity Catalog error.
+- **Presets:** *Net sales by region* (certified Metric View), *Top 5 customers* (masking decided by the policy), *Year over year* (window measure) and the trap *Try to read gold* (`SELECT * FROM gold.fact_sales`, rejected with `INSUFFICIENT_PERMISSIONS`).
 - **Evidence first:** the SQL and the sources are always visible, because AI results must be inspectable.
-- **Comparison criteria** shown under each answer: latency, tool calls, sources used. Cost is visible later in step 8.
-
----
+- **Agent LLM:** Foundation Model `databricks-claude-sonnet-5-5`, running as the app service principal. It chooses tools and writes the answer; it never reads data. Only MCP tool calls reach data, and they run as the person.
+- **OBO trace panel:** lights up stage by stage for each call, and shows the MCP URLs that any client would use.
 
 ## 7. Content model (no hand-copied content)
 ```
 app/
-├── content/steps.yaml        # per step: title, problem, concept, takeaway, artifacts[], code[] (repo paths), proof (query key)
-├── content/snippets/         # copied at build time from src/** (YAML, SQL) by app/build_content.py
-└── config/queries/*.sql      # one file per "live proof" query (Metric Views only)
+├── content/steps.json      # the 9 steps (0–8): title, problem, concept, takeaway, artifacts, proof key
+├── content/sources.json    # "Built with" sources per step: notebooks, scripts, bundle YAML, runbooks
+└── content/artifacts.json  # generated before deploy by scripts/render_app_artifacts.py (gitignored)
 ```
-- Artifact IDs (dashboards, Genie Agent, jobs) come from bundle resource references, injected as app env vars: no hard-coded IDs.
-- `build_content.py` also inlines the selected Databricks icons, as the reference `build.py` does.
-
----
+- Artifact IDs (dashboards, Genie Agent, jobs, groups, domains, Pages) come from the workspace, resolved into `artifacts.json`, and from bundle resource references injected as app env vars (`valueFrom` in `app/app.yaml`). No hard-coded IDs.
+- `render_app_artifacts.py` also records the workspace object ids of the bundle files, so the builder view can link each file. GitHub links point to the public repo.
 
 ## 8. Stack and deployment
-**Constraint:** no `npm` on the development machine. **Solution:** Databricks Apps builds the frontend at deploy time. With a `package.json` present, the runtime runs `npm install` → `pip install -r requirements.txt` → `npm run build` → the `app.yaml` command.
+**Constraint:** no `npm` on the development machine. **Solution:** Databricks Apps builds the frontend at deploy time. With a `package.json` present, the runtime runs `npm install` → `pip install -r requirements.txt` → `npm run build` → the `app.yaml` command (`python main.py`).
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Frontend | **React 18 + Vite (JSX)** · `lucide-react` icons | Built in the Apps container. Output goes to `app/dist/`, served by FastAPI. |
-| Backend | **Python · FastAPI** | `/api/*` routes: identity, Metric View proofs, Genie, MCP, status. Serves `dist/` for every other path. |
-| Identity | OBO (`x-forwarded-access-token`) · personas (M2M from `sgw` secrets) | Validated in spike 8a |
-| MCP | Unity Gateway `system.ai.genie_one_mcp`, `system.ai.dbsql` | User scope `ai-gateway` |
-| Artifact IDs | `scripts/render_app_artifacts.py` resolves dashboards, Genie, jobs, groups, domains and Pages into `app/content/artifacts.json` before deploy | gitignored: workspace-specific, kept out of the public repo |
+| Frontend | **React 18 + Vite (JSX)** · `lucide-react` icons · `@assistant-ui/react` chat with `react-markdown` | Built in the Apps container. Output goes to `app/dist/`, served by FastAPI. |
+| Backend | **Python · FastAPI** | `/api/info`, `/api/steps`, `/api/proof/{key}`, `/api/status`, `/api/sources`, `/api/mcp/tools`, `/api/chat` (SSE). Serves `dist/` for every other path. |
+| Identity | OBO (`x-forwarded-access-token`) · persona service principals (M2M from `sgw` secrets) | Validated in spike 8a |
+| MCP client | Unity Gateway `system.ai.genie_one_mcp` and `system.ai.dbsql` (JSON-RPC: `tools/list`, `tools/call`) | User scope `ai-gateway`; warehouse passed as `_meta.warehouse_id` |
+| Agent LLM | Foundation Model `databricks-claude-sonnet-5-5` (`CAN_QUERY` for the app SP) | Runs as the app SP. Never reads data. |
+| Artifact IDs | `scripts/render_app_artifacts.py` resolves them into `app/content/artifacts.json` before deploy | gitignored: workspace-specific, kept out of the public repo |
 
 ```
 app/
 ├── app.yaml · requirements.txt · package.json · vite.config.js · index.html
 ├── main.py                      # FastAPI (API + serves dist/)
-├── sgw/  identity.py · mcp.py · links.py · proofs.py
-├── content/ steps.json · artifacts.json (generated)
-└── frontend/ main.jsx · App.jsx · styles.css · components/ (TopBar, StepRail, JourneyMap, StepPanel, ViewAs, ArtifactChip, Proof*)
+├── sgw/  identity.py · mcp.py · agent.py · proofs.py · links.py
+├── content/  steps.json · sources.json · artifacts.json (generated)
+└── frontend/  main.jsx · App.jsx · api.js · trace.js · styles.css
+    └── components/  TopBar · StepRail · StepPanel · Diagram (SVG) · Proof · AgentChat · ExternalStage · OboTrace · ErrorBoundary
 ```
 
 ### UX rules (it's an app, not a document)
 - **One step = one visual + one sentence + max 3 short points.** Everything else lives behind **Deep**.
-- The **journey map** is the hero: it is always visible, the active layer lights up and every node opens the real artifact.
-- **Proof before prose:** every step shows a live result as the selected identity (8c).
-- Navigation: step rail (click), `←/→`, `1–8`, `V` (view as), `D` (deep). There is no scrolling to reach the essentials.
+- **Step rail and map are always visible.** Each step has one SVG architecture diagram on a fixed grid: the active block is drawn in ink, the rest dimmed, and a live packet takes the colour of the selected identity. Every block opens the real artifact.
+- **Proof before prose:** every step shows a live result as the selected identity; the step rail shows ✓ chips from the last run of each step's verify job.
+- **Navigation:** step rail (click), `←/→`, `0–8`, `V` (view as), `D` (deep), `T` (theme), `B` (builder view), `P` (presenter mode).
+- **Builder view** (`B`, off by default): a `</>` tab per block, and a "Built with" section per step linking notebooks, scripts, bundle YAML and runbooks on GitHub and in the workspace, plus the step's job.
+- **Error boundaries** per step and per panel: a failing block shows its error without taking the page down.
 
 ## 9. Artifact navigation (the real objects, per step)
 Every map node and every artifact chip is a deep link. URLs are built from the workspace host plus IDs injected from the bundle (dashboards, Genie Agent, jobs) or from UC names.
@@ -179,29 +181,33 @@ Every map node and every artifact chip is a deep link. URLs are built from the w
 | 4 Metrics | `sales_metrics`, `sales_vs_budget_metrics` (definition, *Lineage*) · YAML on GitHub |
 | 5 Context | Domain *Retail Sales* in Discover · the 5 Pages · the deprecated legacy view |
 | 6 Internal | Published *Retail Sales Performance* dashboard · *Retail Sales* Genie Agent |
-| 7 External | The Agent console itself · runbook for connecting Claude / ChatGPT |
+| 7 External | The agent chat itself · the MCP endpoints shown in the trace panel |
 | 8 Operate | *Governance in action* dashboard · `ops` views · verify job run history · GitHub repo and PRs |
 
 URL patterns were validated in spike 8a ([results](spike-8a.md)) and live in `app/sgw/links.py`.
 
 ## 10. Build plan (wave 8, in slices)
-| Slice | Deliverable | Done when |
-|---|---|---|
-| **8a · Spike** | Minimal FastAPI app: OBO query on `sales_metrics` + persona switch + one Genie One MCP call + one DBSQL MCP call + deep-link patterns | All four identities return the expected regions; the MCP OBO question is answered (§5) |
-| **8b · Shell** | Design system, header, step tabs, persistent map, detail panel, keyboard nav, light/dark | Steps 0–8 navigable with static content from `steps.yaml` |
-| **8c · Live proofs** | Proof queries per step, "View as" on steps 2–6, Genie Agent preset | Each step shows its proof for every persona |
-| **8d · Agent console** | Step 7 side-by-side Genie One MCP vs agent + DBSQL MCP, evidence panel | Workshop question answered both ways, as Ana and as Marta |
-| **8e · Operate + status** | Step 8 activity feed, verify status chips, "re-run verify" | Questions asked in the app appear in `ops.semantic_activity` |
-| **8f · Polish** | Presenter mode, motion, empty/error states, smoke test script (Python) | A dry run of the full workshop works end to end |
+All slices are done.
 
----
+| Slice | Deliverable | Status |
+|---|---|---|
+| **8a · Spike** | FastAPI app: OBO query on `sales_metrics`, persona switch, one Genie One MCP call, one DBSQL MCP call, deep-link patterns | ✅ Done. All four identities returned the expected regions; OBO → Unity Gateway MCP confirmed (§5, [results](spike-8a.md)) |
+| **8b · Shell** | Design system, header, step tabs, persistent map, detail panel, keyboard nav, light/dark | ✅ Done |
+| **8c · Live proofs** | Proof per step, "View as" on every step, each proof run as the selected identity | ✅ Done |
+| **8d · Agent chat** | Step 7: chat over Genie One MCP and/or DBSQL MCP as the selected identity, tool-call cards, live OBO trace | ✅ Done (replaces the side-by-side console planned in v0.3) |
+| **8e · Operate + status** | Step 8 activity feed from the `ops` views, verify chips per step | ✅ Done |
+| **8f · Polish** | Presenter mode, builder view, one SVG architecture diagram per step, error boundaries, `scripts/smoke_app.py` | ✅ Done |
+
+Smoke test: `python scripts/smoke_app.py --profile <ws>` checks the API, the per-persona governance results and the chat over DBSQL MCP.
 
 ## 11. Out of scope and risks
 | Item | Note |
 |---|---|
 | Write-back / Lakebase | Not needed: read-only app |
-| Real external clients (Claude, ChatGPT) inside the app | Covered by a runbook link from step 7 |
-| No JS build tooling | Preact + htm as ES modules. Keep components small and plain. |
+| Claude / ChatGPT inside the app | Not embedded. They are external MCP clients of the same endpoints; the MCP URLs are shown in the trace panel |
+| Local npm | Not needed: the frontend is built by Databricks Apps at deploy time |
 | OBO → Unity Gateway MCP | Validated in 8a (see §5) |
-| Persona SP Genie / MCP usage is billed | Presets only, with a small number of calls |
+| Persona SP usage is billed | Persona SPs run SQL and Genie calls; keep demo usage small |
 | Genie One availability for SPs | Validated in 8a. If unsupported, Genie One runs only as *You* (OBO). |
+| Unstructured documents | Removed from scope: the *Serverless Access Controls* preview (`USAGE_POLICY_PREVIEW_ENABLED`) blocks volumes for Genie Agents |
+| Operate labels | Statements rejected at analysis time can be recorded with `client_application = unknown`, so step 8 may show *SQL API* instead of *MCP* |

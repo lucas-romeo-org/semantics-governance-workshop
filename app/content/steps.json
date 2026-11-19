@@ -164,7 +164,7 @@
   "title": "One definition per KPI. Security inherited.",
   "line": "Metric Views define every KPI once, as code. Consumers get SELECT on them, and nothing on gold.",
   "points": [
-   "19 measures: filtered, composed, window, LOD",
+   "18 measures: filtered, composed, window, LOD",
    "Synonyms ES · PT · EN for people and agents",
    "Read gold with owner rights, filtered as you"
   ],

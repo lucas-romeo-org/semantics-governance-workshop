@@ -1,4 +1,4 @@
-# Wave 8 — Companion app (spike 8a). Python FastAPI + static frontend (no Node build).
+# Wave 8 — Companion app. FastAPI backend + React/Vite frontend (Databricks Apps runs npm install + build at deploy).
 resources:
   apps:
     sgw_companion:

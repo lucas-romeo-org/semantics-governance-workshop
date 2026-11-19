@@ -8,7 +8,7 @@ python scripts/show_verify.py --profile <ws> --job "sgw · w4 semantic"
 ## What gets created
 | Object | Notes |
 |---|---|
-| `semantic.sales_metrics` | `src/w4_semantic/sales_metrics.yaml`: 11 dimensions, 19 measures |
+| `semantic.sales_metrics` | `src/w4_semantic/sales_metrics.yaml`: 11 dimensions, 18 measures |
 | `semantic.sales_vs_budget_metrics` | `src/w4_semantic/sales_vs_budget_metrics.yaml`, over the base view `gold.v_sales_budget_monthly` (consumers can't see it) |
 | Grant | `wk_analysts`: `USE SCHEMA` + `SELECT` on `semantic` only |
 

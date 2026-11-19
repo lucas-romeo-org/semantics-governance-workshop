@@ -4,9 +4,9 @@ Workspace: sandbox (Azure, eastus)
 
 | | Check | Detail |
 |---|---|---|
-| ℹ️ | Caller | lucas.romeo@databricks.com |
+| ℹ️ | Caller | <your-user> |
 | ✅ | Workspace admin | yes |
-| ✅ | Unity Catalog metastore | lromeo-one-env · region eastus · cloud azure · owner lucas.romeo@databricks.com |
+| ✅ | Unity Catalog metastore | <metastore> · region eastus · cloud azure · owner <your-user> |
 | ✅ | Can create catalog | CREATE CATALOG available |
 | ✅ | Target catalog | 'sgw_shop' is free |
 | ✅ | SQL warehouses / serverless | 1 warehouses (1 serverless) |

@@ -9,11 +9,11 @@
 
 | Principle | What it means in practice |
 |---|---|
-| **Everything is code** | Workspace objects go through a Declarative Automation Bundle (DAB). Account-level objects go through idempotent Python scripts (SDK `AccountClient`). Anything that has no API goes into `runbooks/`. |
+| **Everything is code** | Workspace objects go through a Declarative Automation Bundle (DAB). Account groups go through the workspace identity proxy, with no account console. Other idempotent Python scripts use the SDK. Anything that has no API goes into `runbooks/`. |
 | **Idempotent and re-runnable** | `CREATE … IF NOT EXISTS` / `CREATE OR REPLACE`, and "ensure" semantics in the scripts. Running a wave twice changes nothing. |
 | **Parameterised for any workspace** | Catalog, group prefix, warehouse and region values are bundle variables. Nothing is hard-coded to the sandbox. |
 | **Verifiable** | Every wave ships a `verify` job or script with explicit assertions. A wave is done only when verify is green. |
-| **Reversible** | `scripts/teardown.py` removes everything in reverse wave order, so a workshop can be reset in minutes. |
+| **Reversible** | `scripts/teardown.py` removes everything in reverse wave order, so a workshop can be reset in minutes. Built: dry run by default; `--apply` deletes pages, domains, catalog (CASCADE), governed tags, bundle, secret scope, persona SPs and groups. Flags: `--keep-catalog`, `--keep-identity`. ✅ |
 | **Public-safe** | Synthetic data only. No customer names, no secrets in the repo. Secrets live in a Databricks secret scope. |
 
 ---
@@ -23,7 +23,7 @@
 | Item | Value (sandbox default) | Variable |
 |---|---|---|
 | Workspace | Azure Databricks sandbox (host from the CLI profile) | bundle target `sandbox` |
-| CLI profiles | workspace profile (workspace admin). An account profile only if a step strictly needs it (e.g. GitHub OIDC federation in wave 9). | `--profile` |
+| CLI profiles | workspace profile (workspace admin). The current waves need no account profile; future CD federation would. | `--profile` |
 | Catalog | `sgw_shop` | `var.catalog` |
 | Schemas | `gold` · `semantic` · `governance` · `ops` | fixed |
 | Group prefix | `wk_` | `var.group_prefix` |
@@ -47,31 +47,24 @@ Azure Databricks signs users in through Entra ID, so we cannot invent human user
 
 ```
 semantics-governance-workshop/
-├── databricks.yml                  # bundle: variables + targets (sandbox, customer)
-├── resources/                      # one YAML per wave (jobs, dashboards, app, warehouse)
+├── databricks.yml                  # bundle: variables + targets (sandbox)
+├── resources/                      # one YAML per wave (w0_warehouse … w8_app)
 ├── src/
-│   ├── w2_data/                    # synthetic data generator + DDL
-│   ├── w2_physical/                # catalog/schemas/ownership/grants/tags (SQL)
-│   ├── w3_security/                # UDFs + ABAC policies (SQL)
-│   ├── w4_semantic/                # *.metric_view.yaml + deploy SQL
-│   ├── w5_context/                 # pages/*.md, domains, certification
-│   ├── w6_unstructured/            # PDF generation, parsing, index, Knowledge Assistant
-│   ├── w7_consumption/             # dashboard (.lvdash.json), Genie Agent config, benchmarks
-│   ├── w8_external/                # MCP client examples, BI connection files
-│   ├── w9_ops/                     # system-table views, observability dashboard
-│   └── common/                     # persona client helper, verify helpers
-├── scripts/                        # account-level + utility scripts (Python SDK)
-│   ├── w1_identity.py              # groups, persona SPs, workspace assignment, secrets
-│   ├── w2_governed_tags.py         # account-level governed tags (tag policies)
-│   ├── w9_federation.py            # GitHub OIDC federation policy for the CI/CD SP
-│   ├── preflight.py                # checks features/previews/permissions
-│   └── teardown.py
-├── app/                            # companion Databricks App (wave 10)
+│   ├── common/                     # persona helper
+│   ├── w2_gold/                    # synthetic data, catalog/schemas, ownership, grants, governed tags
+│   ├── w3_security/                # UDFs + ABAC policies
+│   ├── w4_semantic/                # Metric Views (YAML) + deploy notebook + verify
+│   ├── w5_context/                 # domains, certification, pages/*.md
+│   ├── w6_consumption/             # AI/BI dashboard (.lvdash.json), Genie Agent builder, verify
+│   └── w7_operate/                 # ops views, "Governance in action" dashboard, verify
+├── scripts/                        # w1_identity, preflight, render_app_artifacts, smoke_app, show_verify, teardown
+├── app/                            # companion Databricks App (wave 8)
 ├── runbooks/                       # manual steps (UI-only features), one file per wave
 ├── docs/
 │   ├── BUILD_PLAN.md               # this file
+│   ├── APP_DESIGN.md · spike-8a.md · preflight-sandbox.md
 │   └── design/WORKSHOP_DESIGN.es.md
-└── .github/workflows/              # validate on PR · deploy on main (wave 9)
+└── .github/workflows/              # validate on PR (deploy on main = future)
 ```
 
 ---
@@ -90,7 +83,7 @@ semantics-governance-workshop/
 | **5** | 5 · Context | Domain + subdomains, Pages, certification/deprecation, Discover curation | DAB job `w5_context` (3 notebooks) + runbook | No | ✅ |
 | **6** | 6 · Internal | AI/BI dashboard, Retail Sales Genie Agent (certified Metric Views), Genie One check | DAB (`dashboards`, `genie_spaces`) + verify job | No | ✅ |
 | **7** | 8 · Operate | `ops` views over system tables, "Governance in action" dashboard, CI validate on PRs (CD with OIDC federation = future, needs account-level policy) | DAB job `w7_operate` + dashboard | No | ✅ |
-| **8** | All + 7 · External | Companion app: step navigation, artifact links, status checks, "View as…" panel, **Agent console** (Genie One MCP vs DBSQL MCP, as the user) | Databricks App (DAB): React + FastAPI | No | ✅ (8a–8e) · 8f in progress: SVG architecture diagram, step-7 agent chat over MCP + live OBO trace |
+| **8** | All + 7 · External | Companion app: step navigation, artifact links, live proofs, "View as…" panel, step-7 **agent chat** over Genie One MCP and DBSQL MCP as the user, live OBO trace, builder view | Databricks App (DAB): React + Vite frontend built at deploy, FastAPI | No | ✅ 8a–8f done · `smoke_app.py` and `teardown.py` in place |
 
 ---
 
@@ -116,7 +109,7 @@ semantics-governance-workshop/
 |---|---|
 | Account groups | `wk_platform_admins`, `wk_data_engineers`, `wk_security_admins`, `wk_sales_domain_owners`, `wk_analysts_es`, `wk_analysts_pt`, `wk_sales_leads`, `wk_pii_readers`, plus the umbrella group `wk_analysts` (contains es/pt/leads) |
 | Persona SPs | `sgw-persona-ana` → `wk_analysts_es` · `sgw-persona-pedro` → `wk_analysts_pt` · `sgw-persona-marta` → `wk_sales_leads` + `wk_pii_readers` |
-| CI/CD SP | `sgw-cicd` → `wk_data_engineers` (used in wave 9) |
+| CI/CD SP | `sgw-cicd` → `wk_data_engineers` (for future CD) |
 | Workspace assignment | Automatic: in an identity-federated workspace, groups and SPs created by a workspace admin are account-level identities assigned to the workspace. Entitlements: `workspace-access` + `databricks-sql-access` for consumers. |
 | Secret scope `sgw` | OAuth client secrets of the persona SPs (read: admins + the app SP) |
 | Runbook | `runbooks/w1_identity.md`: mapping real Entra ID users and SCIM / automatic identity management |
@@ -131,18 +124,18 @@ semantics-governance-workshop/
 | Table | Rows (approx.) | Governance notes |
 |---|---|---|
 | `gold.dim_date` | 1,096 (2024–2026) | Fiscal calendar |
-| `gold.dim_store` | 40 | `region` (ES/PT/FR/IT) → tag `region_scope` |
+| `gold.dim_store` | 40 | `region` (ES/PT/FR/IT) → tag `sgw_region_scope` |
 | `gold.dim_product` | 300 | category, brand |
-| `gold.dim_customer` | 20,000 | `email`, `phone`, `tax_id`, `full_name` → tag `pii`; `country` → tag `region_scope` |
-| `gold.fact_sales` | ~1.5M | `store_region` denormalised → tag `region_scope`; `gross_amount`, `discount`, `margin` |
+| `gold.dim_customer` | 20,000 | `email`, `phone`, `tax_id`, `full_name` → tag `sgw_pii`; `country` → tag `sgw_region_scope` |
+| `gold.fact_sales` | ~1.5M | `store_region` denormalised → tag `sgw_region_scope`; `gross_amount`, `discount`, `margin` |
 | `gold.fact_budget` | ~1,700 | month × region × category |
-| `semantic.v_sales_legacy` | view | Duplicated "BI tool" view, deprecated in wave 5 |
+| `semantic.v_sales_es_legacy` | view | Duplicated "BI tool" view for ES, deprecated in wave 5 |
 
 | Artifact | Detail |
 |---|---|
 | Catalog + schemas + ownership | `gold` → `wk_data_engineers` · `governance` → `wk_security_admins` · `semantic` → `wk_data_engineers` · `ops` → `wk_platform_admins` |
 | Grants | Consumers: `USE CATALOG` only (no `USE SCHEMA` on `gold`). Optional `BROWSE` on the catalog, for discovery. |
-| Governed tags (account, prefixed) | `sgw_sensitivity` {public, internal, confidential} · `sgw_pii` {name, email, phone, tax_id} · `sgw_region_scope` {store_region, customer_country} · `sgw_kpi_tier` {gold, silver} — assignable by `wk_security_admins` / `wk_data_engineers` |
+| Governed tags (prefixed, created from the workspace) | `sgw_sensitivity` {public, internal, confidential} · `sgw_pii` {name, email, phone, tax_id} · `sgw_region_scope` {region} — assignable by `wk_security_admins` / `wk_data_engineers` |
 | Tag assignments | SQL `SET TAGS` on columns and tables |
 | Data classification | Runbook: enable it and review its suggestions against our manual tags |
 
@@ -181,10 +174,10 @@ semantics-governance-workshop/
 ### Wave 5 · Business context (Step 5)
 | Artifact | Mechanism | Detail |
 |---|---|---|
-| Domain `Sales` with subdomains `Sales/Retail Sales` and `Sales/Budget` | REST (Beta) or runbook | Business and technical contacts, description, curated assets |
-| Pages | REST API from `src/w5_context/pages/*.md` | `Net Sales`, `Gross Margin %`, `Budget Attainment`, `Active Customer`, `Discount`. Each with definition, synonyms, formula, owner and related assets. |
-| Genie Code-drafted Page | Runbook (live demo) | Generate the "Average Ticket" Page from the YAML during the workshop |
-| Certification | SQL `SET TAG system.certification_status` | `sales_metrics`, `budget_metrics` → certified · `v_sales_legacy` → deprecated |
+| Domain `Retail Sales` with subdomains `Store Performance` and `Budget` | Domains API (Public Preview) | Business owner `wk_sales_domain_owners`, technical owner `wk_data_engineers`. Each domain is backed by a governed tag with the same name |
+| Pages | REST API from `src/w5_context/pages/*.md` | `Net Sales`, `Gross Margin %`, `Budget Attainment`, `Active Customer`, `Discount Rate`. Each with definition, synonyms, formula, owner and related assets. |
+| Genie Code-drafted Page | Runbook (live demo) | Generate the "Sales per Customer" Page from the YAML during the workshop |
+| Certification | SQL `SET TAG system.certification_status` | `sales_metrics`, `sales_vs_budget_metrics` → certified · `v_sales_es_legacy` → deprecated |
 | Permissions | Grants | Only `wk_sales_domain_owners` can assign certification and manage the domain and its Pages |
 | Discover sections, access-request destinations | Runbook | No API for these |
 
@@ -195,15 +188,16 @@ semantics-governance-workshop/
 ### Wave 6 · Internal consumption (Step 6)
 | Artifact | Detail |
 |---|---|
-| AI/BI dashboard `Sales Performance` | On `sales_metrics` / `sales_vs_budget_metrics`, with viewer credentials so RLS applies |
-| Genie Agent `Sales` | Certified metric views only, plus instructions, 8–10 example SQL queries and benchmarks (30 questions × 2–4 phrasings) |
+| AI/BI dashboard `Retail Sales Performance` | On the certified Metric Views, with viewer credentials so RLS applies (`embed_credentials: false`) |
+| Genie Agent `Retail Sales` | The 2 certified Metric Views only, plus instructions, 5 sample questions, 4 example SQL queries and 10 benchmarks |
 | Genie One | No artifact. Runbook check that it cites the Page and the certified metric view. |
 
 **Verify:** the dashboard is published and renders · the Genie benchmark score is recorded · Genie Agent answers for persona users (real-user runbook).
 
 ---
 
-### Wave 7 · External consumption (Step 7)
+### Step 7 · External consumption (delivered in wave 8)
+> Delivered by the companion app (wave 8 below): the app is an MCP client of Unity Gateway, with each person's OAuth token. The runbooks, BI files and orchestrator sample listed here are not in the repo yet.
 | Artifact | Detail |
 |---|---|
 | Managed MCP / Unity Gateway | Runbook: enable previews, grant the `wk_analysts` group on the Genie Agent MCP / DBSQL MCP, capture URLs |
@@ -215,15 +209,15 @@ semantics-governance-workshop/
 
 ---
 
-### Wave 8 · Operate (Step 8)
+### Wave 7 · Operate (Step 8)
 | Artifact | Detail |
 |---|---|
-| `ops` views | `ops.query_by_surface` (query history by client application and user), `ops.access_audit`, `ops.lineage_sales_metrics`, `ops.cost_by_consumer` |
+| `ops` views | `ops.principals` (readable names for persona SPs), `ops.semantic_activity` (who queried what, from which surface and layer), `ops.blocked_attempts`, `ops.lineage` (Gold → Metric Views → consumers), `ops.workshop_cost` |
 | Observability dashboard | "Governance in action" |
-| CI/CD | `.github/workflows/deploy.yml`: on push to `main`, `bundle deploy` as `sgw-cicd` with **GitHub OIDC workload identity federation** (no secrets) |
-| Federation policy | `scripts/w9_federation.py`: account-level SP federation policy for this repo |
+| CI | `.github/workflows/validate.yml`: `bundle validate` on every PR. CD (`bundle deploy` as `sgw-cicd` with GitHub OIDC federation, no secrets) is future work |
+| Federation policy | Not in the repo: it needs an account-level policy, out of scope |
 
-**Verify:** the PR → merge → deploy loop works end to end · `ops` views return data from the earlier waves.
+**Verify:** `ops` views return data from the earlier waves · a PR is validated in CI.
 
 ---
 
@@ -231,10 +225,12 @@ semantics-governance-workshop/
 > Full design: [`APP_DESIGN.md`](APP_DESIGN.md).
 | Feature | Detail |
 |---|---|
-| Linear navigation | Step 1 → 9 with the same tracker bar as the deck |
-| Per step | Concept · artifacts with deep links · SQL/YAML of the step · live status (✅ deployed / ⚠️ manual pending) |
-| "View as…" | Runs the business question as Ana / Pedro / Marta (persona SP credentials from the secret scope) and shows the results side by side |
-| Deploy | `resources/w10_app.yml` |
+| Linear navigation | Step 0 → 8 with the same tracker bar as the deck |
+| Per step | Concept · artifacts with deep links · live proof as the selected identity · ✓ chips from the verify job |
+| "View as…" | You / Ana / Pedro / Marta. You uses OBO; personas use their service principal credentials from the secret scope |
+| Agent chat (step 7) | Chat over Genie One MCP and/or DBSQL MCP as the selected identity; tool-call cards; live OBO trace |
+| Smoke test | `python scripts/smoke_app.py --profile <ws>`: API, per-persona governance checks, chat over DBSQL MCP |
+| Deploy | `resources/w8_app.yml` (`sgw_companion`) |
 
 ---
 
@@ -243,12 +239,13 @@ semantics-governance-workshop/
 | # | Item | Wave | Mitigation |
 |---|---|---|---|
 | 1 | ABAC row filter / mask behaviour **through a metric view** (expected: evaluated as the querying user) | 4 | It is the main assertion of the wave 4 verify. If it fails, fall back to table-level row filters and column masks. |
-| 2 | Previews not enabled in the sandbox: Pages, Domains, Managed MCP, Enhanced Unity Gateway | 0 | Preflight detects them. Enable from the account console. |
+| 2 | Previews not enabled in the sandbox: Pages, Domains, Managed MCP, Enhanced Unity Gateway | 0 | Preflight detects them. The account admin enables them beforehand; the repo never uses the account console. |
 | 3 | Domain ↔ governed tag naming | 5 | Create the domain first and inspect the tag it creates |
 | 4 | Persona SPs and the Genie promotion (SPs are billed) | 7–8 | Persona SPs only run SQL. Genie demos use real users. |
-| 5 | Knowledge Assistant: per-user permission enforcement over volumes | 6 | Validate. If it isn't enforced, demo the restriction through separate KAs or the index. |
+| 5 | Unstructured documents (Knowledge Assistant over volumes) | 6 | **Removed from scope (19 Nov 2026).** The legacy *Serverless Access Controls* preview (`USAGE_POLICY_PREVIEW_ENABLED`) blocks volume attachment, with no workaround in this account. |
 | 6 | Pages content is replicated globally | 5 | Synthetic content only |
-| 7 | GitHub org permissions for Actions and OIDC | 9 | Confirm repo admin access before wave 9 |
+| 7 | GitHub org permissions for Actions and OIDC | CD (future) | Confirm repo admin access before CD is enabled |
+| 8 | Statements rejected at analysis time can be recorded with `client_application = unknown` | 7 | The Operate feed may label a blocked MCP attempt as *SQL API* |
 
 ---
 
