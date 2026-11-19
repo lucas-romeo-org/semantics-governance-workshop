@@ -1,6 +1,6 @@
 # Companion App: Design
 
-> **Status:** design for review (v0.2, 19 Nov 2026: no-npm stack, artifact navigation) · Build = wave 8 in [`BUILD_PLAN.md`](BUILD_PLAN.md)
+> **Status:** v0.3 (19 Nov 2026): React + Vite frontend built by Databricks Apps at deploy time; app-first UX (visual, little text) · Build = wave 8 in [`BUILD_PLAN.md`](BUILD_PLAN.md)
 > **Working name:** `sgw-companion` (Databricks App)
 
 ---
@@ -143,34 +143,30 @@ app/
 ---
 
 ## 8. Stack and deployment
-**Constraint:** no `npm` on the development machine, so there is **no Node build step anywhere**.
+**Constraint:** no `npm` on the development machine. **Solution:** Databricks Apps builds the frontend at deploy time. With a `package.json` present, the runtime runs `npm install` → `pip install -r requirements.txt` → `npm run build` → the `app.yaml` command.
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Backend | **Python · FastAPI** (`uvicorn`) | `requirements.txt`, installed by Databricks Apps. Runs locally with `uv`. |
-| Frontend | **Preact + htm, as native ES modules**: React-style components without JSX and without a bundler | `preact` and `htm` vendored in `app/static/vendor/` (~15 KB, no CDN at runtime). CSS tokens and components ported from the reference template. Charts and diagrams are hand-written SVG components. |
-| Identity | OBO: `x-forwarded-access-token` header → `WorkspaceClient(token=…)` per request · Personas: M2M clients from the `sgw` secrets | See §5 |
-| MCP | JSON-RPC over HTTPS to the Unity Gateway MCP services (`system.ai.genie_one_mcp`, `system.ai.dbsql`) | Already probed: `genie_ask`, `execute_sql`, `poll_sql_result` |
-| "Your agent" | Small Python tool-calling loop: Foundation Model chat endpoint (OpenAI-compatible) + DBSQL MCP tools | ~150 lines, no framework |
-| Resources | warehouse `sgw-warehouse` · secret scope `sgw` · Genie Agent · serving endpoint · verify jobs | Declared in the bundle `apps` resource |
-| `user_api_scopes` | `sql`, `dashboards.genie`, `ai-gateway` (validated) | |
-| Deploy | Bundle resource `resources/w8_app.yml` → `databricks bundle deploy` + `bundle run sgw_companion` | App name: `sgw-companion` |
+| Frontend | **React 18 + Vite (JSX)** · `lucide-react` icons | Built in the Apps container. Output goes to `app/dist/`, served by FastAPI. |
+| Backend | **Python · FastAPI** | `/api/*` routes: identity, Metric View proofs, Genie, MCP, status. Serves `dist/` for every other path. |
+| Identity | OBO (`x-forwarded-access-token`) · personas (M2M from `sgw` secrets) | Validated in spike 8a |
+| MCP | Unity Gateway `system.ai.genie_one_mcp`, `system.ai.dbsql` | User scope `ai-gateway` |
+| Artifact IDs | `scripts/render_app_artifacts.py` resolves dashboards, Genie, jobs, groups, domains and Pages into `app/content/artifacts.json` before deploy | gitignored: workspace-specific, kept out of the public repo |
 
 ```
 app/
-├── app.yaml                 # command: uvicorn main:app
-├── requirements.txt
-├── main.py                  # FastAPI: /api/steps, /api/proof/{step}, /api/ask/{surface}, /api/status
-├── sgw/identity.py          # OBO and persona clients
-├── sgw/mcp.py               # Unity Gateway MCP JSON-RPC client
-├── sgw/agent.py             # LLM + DBSQL MCP loop
-├── sgw/links.py             # deep links to real artifacts (built from env + bundle ids)
-├── content/steps.yaml       # story per step (title, problem, concept, takeaway, artifacts, proof)
-└── static/
-    ├── index.html · app.js · styles.css   # Preact + htm components
-    ├── vendor/preact.mjs · htm.mjs
-    └── icons/                             # Databricks icons inlined by build_content.py
+├── app.yaml · requirements.txt · package.json · vite.config.js · index.html
+├── main.py                      # FastAPI (API + serves dist/)
+├── sgw/  identity.py · mcp.py · links.py · proofs.py
+├── content/ steps.json · artifacts.json (generated)
+└── frontend/ main.jsx · App.jsx · styles.css · components/ (TopBar, StepRail, JourneyMap, StepPanel, ViewAs, ArtifactChip, Proof*)
 ```
+
+### UX rules (it's an app, not a document)
+- **One step = one visual + one sentence + max 3 short points.** Everything else lives behind **Deep**.
+- The **journey map** is the hero: it is always visible, the active layer lights up and every node opens the real artifact.
+- **Proof before prose:** every step shows a live result as the selected identity (8c).
+- Navigation: step rail (click), `←/→`, `1–8`, `V` (view as), `D` (deep). There is no scrolling to reach the essentials.
 
 ## 9. Artifact navigation (the real objects, per step)
 Every map node and every artifact chip is a deep link. URLs are built from the workspace host plus IDs injected from the bundle (dashboards, Genie Agent, jobs) or from UC names.

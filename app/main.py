@@ -1,65 +1,116 @@
-"""Semantic Governance Workshop · companion app (wave 8a spike)."""
+"""Semantic Governance Workshop · companion app (FastAPI backend + React frontend built at deploy)."""
+import json
 import os
-import traceback
 
-from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from sgw import mcp
-from sgw.identity import PERSONAS, client_for, host
+from sgw import links, mcp
+from sgw.identity import PERSONAS, client_for
+from sgw.proofs import PROOFS, CATALOG, WH
 
-CATALOG = os.environ.get("SGW_CATALOG", "sgw_shop")
-WH = os.environ.get("WAREHOUSE_ID", "")
-app = FastAPI(title="sgw-companion")
 HERE = os.path.dirname(os.path.abspath(__file__))
+DIST = os.path.join(HERE, "dist")
+app = FastAPI(title="sgw-companion")
 
 
-def _try(fn):
-    try:
-        return {"ok": True, **fn()}
-    except Exception as e:  # noqa: BLE001 - the spike reports every failure
-        return {"ok": False, "error": str(e).splitlines()[0][:400]}
+def _load(name, default):
+    p = os.path.join(HERE, "content", name)
+    return json.load(open(p)) if os.path.exists(p) else default
 
 
-def _sql(w, stmt):
-    r = w.statement_execution.execute_statement(warehouse_id=WH, statement=stmt, wait_timeout="50s")
-    if r.status.error:
-        raise RuntimeError(r.status.error.message)
-    return r.result.data_array or [] if r.result else []
+STEPS = _load("steps.json", [])
+ART = _load("artifacts.json", {"catalog": CATALOG, "domain": "Retail Sales"})
 
 
-@app.get("/api/spike/{who}")
-def spike(who: str, request: Request, mcp_calls: bool = True):
-    out = {"who": who}
-    try:
-        w = client_for(who, request)
-    except Exception as e:  # noqa: BLE001
-        return {"who": who, "identity": {"ok": False, "error": str(getattr(e, "detail", e))}}
-    out["identity"] = _try(lambda: {"user": w.current_user.me().user_name})
-    out["metric_view"] = _try(lambda: {"rows": _sql(w, f"SELECT region, MEASURE(net_sales) FROM {CATALOG}.semantic.sales_metrics GROUP BY region ORDER BY region")})
-    out["gold_denied"] = _try(lambda: {"rows": _sql(w, f"SELECT count(*) FROM {CATALOG}.gold.fact_sales")})
-    if mcp_calls:
-        out["dbsql_mcp"] = _try(lambda: mcp.dbsql_execute(w, f"SELECT region, MEASURE(net_sales) AS net_sales FROM {CATALOG}.semantic.sales_metrics GROUP BY region ORDER BY region", WH))
-        out["genie_one_mcp"] = _try(lambda: mcp.genie_one_ask(w, "What were net sales by region in 2026-Q3?"))
-    import json as _json
-    print("SPIKE_DETAIL", _json.dumps(out, default=str)[:6000], flush=True)
-    return out
+def resolve(a: dict) -> dict:
+    """Turn an artifact reference from steps.json into a real deep link."""
+    kind, ref, cat = a["kind"], a.get("ref", ""), ART.get("catalog", CATALOG)
+    url = None
+    if kind in ("table", "table_tab"):
+        obj, _, tab = ref.partition(":")
+        schema, _, name = obj.partition("/")
+        url = links.table(cat, schema, name or None, tab or None)
+    elif kind == "job" and ART.get("jobs", {}).get(ref):
+        url = links.job(ART["jobs"][ref])
+    elif kind == "group" and ART.get("groups", {}).get(ref):
+        url = links.group(ART["groups"][ref])
+    elif kind == "dashboard" and ART.get("dashboards", {}).get(ref):
+        url = links.dashboard(ART["dashboards"][ref])
+    elif kind == "genie" and ART.get("genie_spaces", {}).get(ref):
+        url = links.genie(ART["genie_spaces"][ref])
+    elif kind == "domain":
+        url = links.domain(ART.get("domain", "Retail Sales"))
+    elif kind == "page" and ART.get("pages", {}).get(ref):
+        url = links.page(ART["pages"][ref])
+    elif kind == "repo":
+        base = ART.get("repo", "https://github.com/lucas-romeo-org/semantics-governance-workshop")
+        url = f"{base}/tree/main/{ref}" if ref else base
+    return {**a, "url": url}
+
+
+# Map nodes → the real artifact each one opens
+NODE_LINKS = {
+    "groups": {"kind": "group", "ref": "analysts"}, "personas": {"kind": "group", "ref": "analysts_es"},
+    "gold": {"kind": "table", "ref": "gold"}, "tags": {"kind": "table", "ref": "gold/dim_customer"},
+    "policies": {"kind": "table_tab", "ref": "gold:policies"}, "mv": {"kind": "table", "ref": "semantic/sales_metrics"},
+    "context": {"kind": "domain", "ref": ""}, "dash": {"kind": "dashboard", "ref": "retail_sales_dashboard"},
+    "genie": {"kind": "genie", "ref": "retail_sales_agent"}, "mcp": {"kind": "repo", "ref": "app"},
+    "bi": {"kind": "repo", "ref": "runbooks"}, "ops": {"kind": "dashboard", "ref": "governance_in_action"},
+}
 
 
 @app.get("/api/info")
 def info(request: Request):
-    return {"host": host(), "workspace_id": os.environ.get("DATABRICKS_WORKSPACE_ID"), "catalog": CATALOG,
+    return {"catalog": CATALOG, "user": request.headers.get("x-forwarded-email"),
             "has_user_token": bool(request.headers.get("x-forwarded-access-token")),
-            "user": request.headers.get("x-forwarded-email"), "personas": PERSONAS}
+            "personas": PERSONAS, "nodes": {k: resolve(v)["url"] for k, v in NODE_LINKS.items()}}
 
 
-app.mount("/static", StaticFiles(directory=os.path.join(HERE, "static")), name="static")
+@app.get("/api/steps")
+def steps():
+    return [{**s, "artifacts": [resolve(a) for a in s.get("artifacts", [])]} for s in STEPS]
 
 
-@app.get("/")
-def index():
-    return FileResponse(os.path.join(HERE, "static", "index.html"))
+@app.get("/api/proof/{key}")
+def proof(key: str, request: Request, who: str = "me"):
+    fn = PROOFS.get(key)
+    if not fn:
+        raise HTTPException(404, f"no proof '{key}'")
+    try:
+        res = fn(client_for(who, request))
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        res = {"ok": False, "error": str(e).splitlines()[0][:220]}
+    return JSONResponse({"who": who, "key": key, **res})
+
+
+@app.get("/api/ask/{surface}")
+def ask(surface: str, q: str, request: Request, who: str = "me"):
+    w = client_for(who, request)
+    try:
+        if surface == "genie_one":
+            return {"who": who, "surface": surface, "ok": True, **mcp.genie_one_ask(w, q)}
+        if surface == "dbsql":
+            return {"who": who, "surface": surface, "ok": True, **mcp.dbsql_execute(w, q, WH)}
+    except Exception as e:  # noqa: BLE001
+        return {"who": who, "surface": surface, "ok": False, "error": str(e).splitlines()[0][:300]}
+    raise HTTPException(404, surface)
+
+
+# ── frontend (built by Databricks Apps: npm install → npm run build → dist/) ──
+if os.path.isdir(os.path.join(DIST, "assets")):
+    app.mount("/assets", StaticFiles(directory=os.path.join(DIST, "assets")), name="assets")
+
+
+@app.get("/{path:path}")
+def spa(path: str):
+    index = os.path.join(DIST, "index.html")
+    if os.path.exists(index):
+        return FileResponse(index)
+    return JSONResponse({"error": "frontend not built: dist/ missing"}, status_code=503)
 
 
 if __name__ == "__main__":

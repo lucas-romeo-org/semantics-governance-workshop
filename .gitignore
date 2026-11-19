@@ -7,3 +7,8 @@ __pycache__/
 .DS_Store
 node_modules/
 dist/
+
+# app build + workspace-specific ids
+app/dist/
+app/node_modules/
+app/content/artifacts.json
