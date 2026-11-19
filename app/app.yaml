@@ -1,0 +1,12 @@
+command: ["python", "main.py"]
+env:
+  - {name: WAREHOUSE_ID, valueFrom: sql-warehouse}
+  - {name: GENIE_SPACE_ID, valueFrom: genie-space}
+  - {name: SERVING_ENDPOINT, valueFrom: serving-endpoint}
+  - {name: PERSONA_ANA_CLIENT_ID, valueFrom: persona-ana-id}
+  - {name: PERSONA_ANA_CLIENT_SECRET, valueFrom: persona-ana-secret}
+  - {name: PERSONA_PEDRO_CLIENT_ID, valueFrom: persona-pedro-id}
+  - {name: PERSONA_PEDRO_CLIENT_SECRET, valueFrom: persona-pedro-secret}
+  - {name: PERSONA_MARTA_CLIENT_ID, valueFrom: persona-marta-id}
+  - {name: PERSONA_MARTA_CLIENT_SECRET, valueFrom: persona-marta-secret}
+  - {name: SGW_CATALOG, value: sgw_shop}

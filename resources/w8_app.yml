@@ -1,0 +1,24 @@
+# Wave 8 — Companion app (spike 8a). Python FastAPI + static frontend (no Node build).
+resources:
+  apps:
+    sgw_companion:
+      name: sgw-companion
+      description: Semantic Governance Workshop companion (journey navigator + agent console)
+      source_code_path: ../app
+      user_api_scopes: [sql, dashboards.genie]
+      resources:
+        - name: sql-warehouse
+          sql_warehouse: {id: "${resources.sql_warehouses.sgw_warehouse.id}", permission: CAN_USE}
+        - name: genie-space
+          genie_space: {name: Retail Sales, space_id: "${resources.genie_spaces.retail_sales_agent.id}", permission: CAN_RUN}
+        - name: serving-endpoint
+          serving_endpoint: {name: databricks-claude-sonnet-5-5, permission: CAN_QUERY}
+        - {name: persona-ana-id, secret: {scope: "${var.secret_scope}", key: persona-ana-client-id, permission: READ}}
+        - {name: persona-ana-secret, secret: {scope: "${var.secret_scope}", key: persona-ana-client-secret, permission: READ}}
+        - {name: persona-pedro-id, secret: {scope: "${var.secret_scope}", key: persona-pedro-client-id, permission: READ}}
+        - {name: persona-pedro-secret, secret: {scope: "${var.secret_scope}", key: persona-pedro-client-secret, permission: READ}}
+        - {name: persona-marta-id, secret: {scope: "${var.secret_scope}", key: persona-marta-client-id, permission: READ}}
+        - {name: persona-marta-secret, secret: {scope: "${var.secret_scope}", key: persona-marta-client-secret, permission: READ}}
+      permissions:
+        - {group_name: "${var.group_prefix}platform_admins", level: CAN_MANAGE}
+        - {group_name: "${var.group_prefix}analysts", level: CAN_USE}
