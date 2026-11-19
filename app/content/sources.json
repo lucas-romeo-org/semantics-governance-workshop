@@ -1,0 +1,176 @@
+{
+ "nodes": {
+  "idp": [
+   "scripts/w1_identity.py",
+   "runbooks/w1_identity.md"
+  ],
+  "people": [
+   "scripts/w1_identity.py",
+   "src/common/personas.py",
+   "app/sgw/identity.py"
+  ],
+  "groups": [
+   "scripts/w1_identity.py",
+   "resources/w1_identity.yml"
+  ],
+  "oauth": [
+   "resources/w8_app.yml",
+   "app/sgw/identity.py"
+  ],
+  "gold": [
+   "src/w2_gold/01_catalog_and_schemas.py",
+   "src/w2_gold/02_governed_tags.py",
+   "src/w2_gold/03_generate_data.py",
+   "src/w2_gold/04_ownership_grants_tags.py",
+   "resources/w2_gold.yml"
+  ],
+  "policies": [
+   "src/w3_security/01_abac_policies.py",
+   "src/w3_security/02_verify.py",
+   "resources/w3_security.yml"
+  ],
+  "mv": [
+   "src/w4_semantic/sales_metrics.yaml",
+   "src/w4_semantic/sales_vs_budget_metrics.yaml",
+   "src/w4_semantic/01_deploy_metric_views.py",
+   "resources/w4_semantic.yml"
+  ],
+  "context": [
+   "src/w5_context/01_domains_and_certification.py",
+   "src/w5_context/02_pages.py",
+   "src/w5_context/pages",
+   "resources/w5_context.yml"
+  ],
+  "dash": [
+   "src/w6_consumption/retail_sales.lvdash.json",
+   "resources/w6_consumption.yml"
+  ],
+  "genie": [
+   "src/w6_consumption/build_genie_space.py",
+   "resources/w6_genie.yml"
+  ],
+  "genieone": [
+   "src/w6_consumption/verify.py",
+   "runbooks/w6_consumption.md"
+  ],
+  "warehouse": [
+   "resources/w0_warehouse.yml"
+  ],
+  "gateway": [
+   "app/sgw/mcp.py"
+  ],
+  "app": [
+   "app/main.py",
+   "app/sgw/agent.py",
+   "app/app.yaml",
+   "resources/w8_app.yml"
+  ],
+  "bi": [
+   "runbooks/w6_consumption.md"
+  ],
+  "agents": [
+   "runbooks/w8_app.md",
+   "app/sgw/mcp.py"
+  ],
+  "ops": [
+   "src/w7_operate/01_ops_views.py",
+   "src/w7_operate/governance_in_action.lvdash.json",
+   "resources/w7_operate.yml"
+  ]
+ },
+ "steps": {
+  "0": {
+   "items": [
+    "README.md",
+    "databricks.yml",
+    "docs/design/WORKSHOP_DESIGN.es.md",
+    "docs/BUILD_PLAN.md",
+    "scripts/preflight.py"
+   ]
+  },
+  "1": {
+   "job": "w1_identity_setup",
+   "items": [
+    "scripts/w1_identity.py",
+    "resources/w1_identity.yml",
+    "src/common/personas.py",
+    "runbooks/w1_identity.md"
+   ]
+  },
+  "2": {
+   "job": "w2_gold",
+   "items": [
+    "src/w2_gold/01_catalog_and_schemas.py",
+    "src/w2_gold/02_governed_tags.py",
+    "src/w2_gold/03_generate_data.py",
+    "src/w2_gold/04_ownership_grants_tags.py",
+    "src/w2_gold/05_verify.py",
+    "resources/w2_gold.yml",
+    "runbooks/w2_gold.md"
+   ]
+  },
+  "3": {
+   "job": "w3_security",
+   "items": [
+    "src/w3_security/01_abac_policies.py",
+    "src/w3_security/02_verify.py",
+    "resources/w3_security.yml",
+    "runbooks/w3_security.md"
+   ]
+  },
+  "4": {
+   "job": "w4_semantic",
+   "items": [
+    "src/w4_semantic/sales_metrics.yaml",
+    "src/w4_semantic/sales_vs_budget_metrics.yaml",
+    "src/w4_semantic/01_deploy_metric_views.py",
+    "src/w4_semantic/02_verify.py",
+    "resources/w4_semantic.yml",
+    "runbooks/w4_semantic.md"
+   ]
+  },
+  "5": {
+   "job": "w5_context",
+   "items": [
+    "src/w5_context/01_domains_and_certification.py",
+    "src/w5_context/02_pages.py",
+    "src/w5_context/pages",
+    "src/w5_context/03_verify.py",
+    "resources/w5_context.yml",
+    "runbooks/w5_context.md"
+   ]
+  },
+  "6": {
+   "job": "w6_consumption_verify",
+   "items": [
+    "src/w6_consumption/retail_sales.lvdash.json",
+    "src/w6_consumption/build_genie_space.py",
+    "src/w6_consumption/verify.py",
+    "resources/w6_consumption.yml",
+    "resources/w6_genie.yml",
+    "runbooks/w6_consumption.md"
+   ]
+  },
+  "7": {
+   "items": [
+    "app/sgw/mcp.py",
+    "app/sgw/agent.py",
+    "app/sgw/identity.py",
+    "app/main.py",
+    "app/frontend/components/AgentChat.jsx",
+    "resources/w8_app.yml",
+    "runbooks/w8_app.md"
+   ]
+  },
+  "8": {
+   "job": "w7_operate",
+   "items": [
+    "src/w7_operate/01_ops_views.py",
+    "src/w7_operate/02_verify.py",
+    "src/w7_operate/governance_in_action.lvdash.json",
+    "resources/w7_operate.yml",
+    "runbooks/w7_operate.md"
+   ]
+  }
+ }
+}

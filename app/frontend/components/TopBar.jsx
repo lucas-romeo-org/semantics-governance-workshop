@@ -1,8 +1,8 @@
 import React from "react";
-import { Moon, Sun } from "lucide-react";
+import { Code, Moon, Sun } from "lucide-react";
 import { IDENTITIES } from "../api.js";
 
-export default function TopBar({ who, setWho, dark, setDark, user }) {
+export default function TopBar({ who, setWho, dark, setDark, user, builder, setBuilder }) {
   return (
     <header className="topbar">
       <div className="brand">
@@ -24,6 +24,10 @@ export default function TopBar({ who, setWho, dark, setDark, user }) {
           </button>
         ))}
       </div>
+      <button className={`builder-switch ${builder ? "on" : ""}`} role="switch" aria-checked={builder} onClick={() => setBuilder(!builder)}
+              title="Show the notebooks, scripts and bundle files behind every block (B)">
+        <Code size={15} /><span>Builder view</span><span className="track"><span className="knob" /></span>
+      </button>
       <button className="icon-btn" onClick={() => setDark(!dark)} aria-label="Toggle theme">{dark ? <Sun size={18} /> : <Moon size={18} />}</button>
     </header>
   );

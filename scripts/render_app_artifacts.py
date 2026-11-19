@@ -18,7 +18,21 @@ def bundle_ids(profile, target):
                          cwd=ROOT, capture_output=True, text=True, check=True).stdout
     res = json.loads(out)["resources"]
     pick = lambda kind: {k: str(v.get("id", "")) for k, v in res.get(kind, {}).items()}
-    return {"dashboards": pick("dashboards"), "genie_spaces": pick("genie_spaces"), "jobs": pick("jobs")}
+    return {"dashboards": pick("dashboards"), "genie_spaces": pick("genie_spaces"), "jobs": pick("jobs"),
+            "bundle_files": json.loads(out)["workspace"]["file_path"]}
+
+
+def bundle_files(w, root):
+    """Workspace object id of every file the bundle synced (builder view deep links). Notebooks lose their .py."""
+    files = {}
+    for o in w.workspace.list(root, recursive=True):
+        rel = o.path[len(root) + 1:]
+        kind = o.object_type.value if o.object_type else ""
+        if kind == "NOTEBOOK":
+            files[rel + ".py"] = ["notebook", o.object_id]
+        elif kind == "FILE":
+            files[rel] = ["file", o.object_id]
+    return files
 
 
 def main():
@@ -52,12 +66,15 @@ def main():
             break
     page_ids = {p["display_name"]: p["name"].split("/")[-1] for p in pages if p.get("domain") in domain_ids}
 
+    root = ids.pop("bundle_files")
+    files = bundle_files(w, root)
     art = {"catalog": args.catalog, "domain": args.domain, **ids, "groups": groups, "pages": page_ids,
+           "bundle_root": root, "files": files,
            "repo": "https://github.com/lucas-romeo-org/semantics-governance-workshop"}
     out = ROOT / "app" / "content" / "artifacts.json"
     out.write_text(json.dumps(art, indent=2))
     print(f"wrote {out.relative_to(ROOT)}: {len(groups)} groups, {len(page_ids)} pages, "
-          f"{len(ids['dashboards'])} dashboards, {len(ids['jobs'])} jobs")
+          f"{len(ids['dashboards'])} dashboards, {len(ids['jobs'])} jobs, {len(files)} workspace files")
 
 
 if __name__ == "__main__":

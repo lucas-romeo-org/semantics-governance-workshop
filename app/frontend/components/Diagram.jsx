@@ -1,5 +1,5 @@
-import React from "react";
-import { Activity, AppWindow, BookOpen, Bot, Database, ExternalLink, Fingerprint, KeyRound, LayoutDashboard, Lock,
+import React, { useEffect, useState } from "react";
+import { Activity, AppWindow, BookOpen, Bot, Code, Database, ExternalLink, FileCode, X, Fingerprint, KeyRound, LayoutDashboard, Lock,
   MessageSquare, Monitor, Network, Server, Shield, Sigma, Sparkles, Users } from "lucide-react";
 import { IDENTITIES } from "../api.js";
 
@@ -162,7 +162,50 @@ function NodeBody({ id, n, who }) {
   </>);
 }
 
-export default function Diagram({ step, nodes = {}, who, compact = false }) {
+// Builder view only: a "</> n" tab on each block's top-right corner opens the technical sources behind it.
+function SourceBadge({ n, count, onOpen }) {
+  const x = n.x + n.w - 44, y = n.y - 9;
+  return (
+    <g className="src-badge" role="button" tabIndex={0} aria-label={`${n.title}: ${count} technical sources`}
+       onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpen(); }}
+       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onOpen(); } }}>
+      <rect x={x} y={y} width={38} height={18} rx={9} />
+      <Code x={x + 6} y={y + 3} size={12} strokeWidth={2.2} className="src-badge-icon" />
+      <text x={x + 22} y={y + 13}>{count}</text>
+    </g>
+  );
+}
+
+function SourcePopover({ id, n, items, onClose }) {
+  const w = 410, h = 52 + items.length * 40;
+  const x = Math.max(12, Math.min(n.x + n.w - w, W - w - 12));
+  const below = n.y + n.h + 8 + h < H - 8;
+  const y = below ? n.y + n.h + 8 : Math.max(8, n.y - h - 14);
+  return (
+    <foreignObject x={x} y={y} width={w} height={h} className="src-fo">
+      <div className="src-pop" onClick={(e) => e.stopPropagation()}>
+        <div className="src-pop-head"><span className="eyebrow">Built with · {n.title}</span>
+          <button className="icon-btn xs" onClick={onClose} aria-label="Close"><X size={12} /></button></div>
+        {items.map((it) => (
+          <div key={it.path} className="src-row">
+            <FileCode size={14} className="src-ico" />
+            <span className="src-name"><b title={it.path}>{it.name}</b><small>{it.kind}</small></span>
+            {it.workspace && <a href={it.workspace} target="_blank" rel="noreferrer" className="src-link">workspace <ExternalLink size={10} /></a>}
+            <a href={it.github} target="_blank" rel="noreferrer" className="src-link">GitHub <ExternalLink size={10} /></a>
+          </div>
+        ))}
+      </div>
+    </foreignObject>
+  );
+}
+
+export default function Diagram({ step, nodes = {}, who, compact = false, sources = null }) {
+  const [openSrc, setOpenSrc] = useState(null);
+  useEffect(() => { if (!sources) setOpenSrc(null); }, [sources]);
+  useEffect(() => {
+    const k = (e) => e.key === "Escape" && setOpenSrc(null);
+    window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
+  }, []);
   const cfg = STEP[step.id] ?? STEP[0];
   const all = cfg.nodes === "*";
   const nodeState = (id) => (all ? "" : cfg.nodes.includes(id) ? "on" : "dim");
@@ -171,7 +214,7 @@ export default function Diagram({ step, nodes = {}, who, compact = false }) {
 
   return (
     <section className={`diagram ${compact ? "compact" : ""}`} aria-label="Solution architecture" style={{ "--who": ident.color }}>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" role="img">
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" role="img" onClick={() => openSrc && setOpenSrc(null)}>
         <defs>
           <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" className="ah" /></marker>
           <marker id="ah-on" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" className="ah on" /></marker>
@@ -238,6 +281,11 @@ export default function Diagram({ step, nodes = {}, who, compact = false }) {
           const [t, x, y, a] = e.label;
           return <text key={e.id} className={`edge-label ${halo(x)} ${on ? "on" : all ? "" : "off"} ${e.deny ? "deny" : ""}`} x={x} y={y} textAnchor={a}>{t}</text>;
         })}
+        {/* builder view: source tabs (on top of nodes and labels) */}
+        {sources && Object.entries(NODES).map(([id, n]) => sources[id]?.length
+          ? <SourceBadge key={`src-${id}`} n={n} count={sources[id].length} onOpen={() => setOpenSrc(openSrc === id ? null : id)} /> : null)}
+
+        {sources && openSrc && sources[openSrc] && <SourcePopover id={openSrc} n={NODES[openSrc]} items={sources[openSrc]} onClose={() => setOpenSrc(null)} />}
       </svg>
       {!compact && (
         <div className="legend">
@@ -246,7 +294,7 @@ export default function Diagram({ step, nodes = {}, who, compact = false }) {
           <span><i className="lg-dot" /> live, as {ident.label}</span>
           <span><i className="lg-x">✕</i> blocked by Unity Catalog</span>
           <span className="grow" />
-          <span className="muted">Click any block to open the real object</span>
+          <span className="muted">{sources ? <>Click a block to open the real object · <b className="src-hint"><Code size={11} /> n</b> for the code behind it</> : "Click any block to open the real object"}</span>
         </div>
       )}
     </section>

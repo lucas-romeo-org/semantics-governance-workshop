@@ -21,6 +21,7 @@ def _load(name, default):
 
 
 STEPS = _load("steps.json", [])
+SOURCES = _load("sources.json", {"nodes": {}, "steps": {}})
 ART = _load("artifacts.json", {"catalog": CATALOG, "domain": "Retail Sales"})
 
 
@@ -134,6 +135,38 @@ async def chat(request: Request):
 
 def _sse(ev: dict) -> str:
     return f"data: {json.dumps(ev, default=str)}\n\n"
+
+
+KINDS = [("resources/", "bundle resource"), ("runbooks/", "runbook"), ("docs/", "doc"), ("scripts/", "script"),
+         ("app/", "app code"), (".lvdash.json", "dashboard JSON"), (".yaml", "Metric View YAML"), ("pages", "Pages (markdown)"),
+         (".md", "doc"), ("databricks.yml", "bundle"), ("src/", "notebook")]
+
+
+def source(path: str) -> dict:
+    """One technical artifact: where it lives on GitHub and, if the bundle synced it, in the workspace."""
+    repo = ART.get("repo", "https://github.com/lucas-romeo-org/semantics-governance-workshop")
+    is_dir = "." not in path.rsplit("/", 1)[-1]
+    kind = next((k for pat, k in KINDS if (path.startswith(pat) if pat.endswith("/") else pat in path)), "file")
+    ws = None
+    hit = ART.get("files", {}).get(path)
+    if kind == "notebook" and not (hit and hit[0] == "notebook"):
+        kind = "Python script"
+    if hit:
+        ws = f"{links._base()}/editor/{'notebooks' if hit[0] == 'notebook' else 'files'}/{hit[1]}?{links._o()}"
+    return {"path": path, "name": path.rsplit("/", 1)[-1] + ("/" if is_dir else ""), "kind": kind,
+            "github": f"{repo}/{'tree' if is_dir else 'blob'}/main/{path}", "workspace": ws}
+
+
+@app.get("/api/sources")
+def sources():
+    """Builder view: the notebooks, scripts and bundle files behind every block and every step."""
+    jobs = ART.get("jobs", {})
+    return {
+        "nodes": {k: [source(p) for p in v] for k, v in SOURCES.get("nodes", {}).items()},
+        "steps": {k: {"job": ({"key": v["job"], "url": links.job(jobs[v["job"]])} if v.get("job") in jobs else None),
+                      "items": [source(p) for p in v.get("items", [])]} for k, v in SOURCES.get("steps", {}).items()},
+        "bundle_root": ART.get("bundle_root"),
+    }
 
 
 STEP_JOBS = {1: "w1_identity_setup", 2: "w2_gold", 3: "w3_security", 4: "w4_semantic", 5: "w5_context",

@@ -8,6 +8,7 @@ export const api = {
   steps: () => get("/api/steps"),
   proof: (key, who) => get(`/api/proof/${key}?who=${who}`),
   mcpTools: (who) => get(`/api/mcp/tools?who=${who}`),
+  sources: () => get("/api/sources"),
   status: () => get("/api/status"),
 };
 
