@@ -50,6 +50,8 @@ def dbsql_execute(w, query: str, warehouse_id: str, timeout_s: int = 60) -> dict
         time.sleep(2)
         sc = call_tool(w, "system.ai.dbsql", "poll_sql_result", {"statement_id": sc["statement_id"]}).get("structuredContent", {})
     cols = [c["name"] for c in sc.get("manifest", {}).get("schema", {}).get("columns", [])]
-    rows = (sc.get("result") or {}).get("data_array") or []
+    res = sc.get("result") or {}
+    rows = res.get("data_array") or [[next(iter(v.values()), None) if isinstance(v, dict) else v for v in r.get("values", [])]
+                                     for r in res.get("data_typed_array", [])]
     return {"state": sc.get("status", {}).get("state"), "error": (sc.get("status", {}).get("error") or {}).get("message"),
             "columns": cols, "rows": rows, "seconds": round(time.time() - t0, 1)}

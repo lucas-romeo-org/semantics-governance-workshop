@@ -42,7 +42,8 @@ def spike(who: str, request: Request, mcp_calls: bool = True):
     if mcp_calls:
         out["dbsql_mcp"] = _try(lambda: mcp.dbsql_execute(w, f"SELECT region, MEASURE(net_sales) AS net_sales FROM {CATALOG}.semantic.sales_metrics GROUP BY region ORDER BY region", WH))
         out["genie_one_mcp"] = _try(lambda: mcp.genie_one_ask(w, "What were net sales by region in 2026-Q3?"))
-    print("SPIKE", who, {k: (v.get("ok") if isinstance(v, dict) else v) for k, v in out.items()}, flush=True)
+    import json as _json
+    print("SPIKE_DETAIL", _json.dumps(out, default=str)[:6000], flush=True)
     return out
 
 

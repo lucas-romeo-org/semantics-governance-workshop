@@ -5,7 +5,7 @@ resources:
       name: sgw-companion
       description: Semantic Governance Workshop companion (journey navigator + agent console)
       source_code_path: ../app
-      user_api_scopes: [sql, dashboards.genie]
+      user_api_scopes: [sql, dashboards.genie, ai-gateway]
       resources:
         - name: sql-warehouse
           sql_warehouse: {id: "${resources.sql_warehouses.sgw_warehouse.id}", permission: CAN_USE}
